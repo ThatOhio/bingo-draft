@@ -1,0 +1,159 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  PARTICIPANT
+  CAPTAIN
+  ADMIN
+}
+
+enum EventStatus {
+  PLANNED
+  OPEN
+  DRAFTING
+  COMPLETED
+  CLOSED
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  password  String
+  role      UserRole @default(PARTICIPANT)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  eventsAsCaptain    Event[]           @relation("EventCaptain")
+  draftOrderSubmissions DraftOrderSubmission[]
+  eventParticipants  EventParticipant[]
+}
+
+model Event {
+  id              String      @id @default(cuid())
+  name            String
+  description     String?
+  eventCode       String      @unique
+  status          EventStatus @default(PLANNED)
+  draftDeadline   DateTime?
+  draftStartTime  DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  // Relations
+  captainId       String
+  captain         User        @relation("EventCaptain", fields: [captainId], references: [id])
+  players         Player[]
+  teams           Team[]
+  draftPicks      DraftPick[]
+  participants    EventParticipant[]
+  draftOrder      DraftOrder?
+  submissions    DraftOrderSubmission[]
+}
+
+model Player {
+  id          String   @id @default(cuid())
+  name        String
+  position    String?
+  team        String?
+  notes       String?
+  eventId     String
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  draftPicks  DraftPick[]
+  submissions DraftOrderSubmissionItem[]
+
+  @@index([eventId])
+}
+
+model Team {
+  id          String   @id @default(cuid())
+  name        String
+  eventId     String
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  draftPicks  DraftPick[]
+
+  @@index([eventId])
+}
+
+model DraftPick {
+  id          String   @id @default(cuid())
+  eventId     String
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  teamId      String
+  team        Team     @relation(fields: [teamId], references: [id])
+  playerId    String
+  player      Player   @relation(fields: [playerId], references: [id])
+  round       Int
+  pickNumber  Int      // Overall pick number (1, 2, 3, ...)
+  timestamp   DateTime @default(now())
+
+  @@index([eventId])
+  @@index([teamId])
+}
+
+model DraftOrder {
+  id          String   @id @default(cuid())
+  eventId     String   @unique
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  teamOrder   String[] // Array of team IDs in snake order
+  currentPick Int      @default(0) // Index in teamOrder array
+  currentRound Int     @default(1)
+  isReversed  Boolean  @default(false) // For snake draft: true when going backwards
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model DraftOrderSubmission {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventId     String
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  submittedAt DateTime @default(now())
+  locked      Boolean  @default(false)
+
+  items       DraftOrderSubmissionItem[]
+
+  @@unique([userId, eventId])
+  @@index([eventId])
+}
+
+model DraftOrderSubmissionItem {
+  id          String   @id @default(cuid())
+  submissionId String
+  submission  DraftOrderSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  playerId    String
+  player      Player   @relation(fields: [playerId], references: [id])
+  position    Int      // Order in user's draft (1, 2, 3, ...)
+
+  @@unique([submissionId, position])
+  @@index([submissionId])
+}
+
+model EventParticipant {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  joinedAt  DateTime @default(now())
+
+  @@unique([userId, eventId])
+  @@index([eventId])
+}
