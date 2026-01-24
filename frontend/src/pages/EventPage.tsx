@@ -14,7 +14,7 @@ interface Event {
   players: Array<{ id: string; name: string; team: string | null }>;
   teams: Array<{ id: string; name: string }>;
   _count: {
-    participants: number;
+    submissions: number;
   };
 }
 
@@ -122,8 +122,8 @@ const EventPage = () => {
                 <span className="ml-2">{event.teams.length}</span>
               </div>
               <div>
-                <span className="font-semibold">Participants:</span>
-                <span className="ml-2">{event._count.participants}</span>
+                <span className="font-semibold">Predictions:</span>
+                <span className="ml-2">{event._count.submissions}</span>
               </div>
               {event.draftDeadline && (
                 <div>

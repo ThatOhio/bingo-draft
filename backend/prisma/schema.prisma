@@ -11,8 +11,7 @@ datasource db {
 }
 
 enum UserRole {
-  PARTICIPANT
-  CAPTAIN
+  USER
   ADMIN
 }
 
@@ -29,7 +28,7 @@ model User {
   id            String   @id @default(cuid())
   discordId     String   @unique // Discord user ID
   discordUsername String // Discord username (display name)
-  role          UserRole @default(PARTICIPANT)
+  role          UserRole @default(USER)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 

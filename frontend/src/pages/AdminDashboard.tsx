@@ -26,7 +26,7 @@ interface Event {
   eventCode: string;
   status: string;
   _count: {
-    participants: number;
+    submissions: number;
     players: number;
     teams: number;
   };
@@ -447,8 +447,7 @@ const AdminDashboard = () => {
                                 onChange={(e) => updateUserRole(u.id, e.target.value)}
                                 className="border border-gray-300 rounded px-2 py-1"
                               >
-                                <option value="PARTICIPANT">Participant</option>
-                                <option value="CAPTAIN">Captain</option>
+                                <option value="USER">User</option>
                                 <option value="ADMIN">Admin</option>
                               </select>
                             </td>
@@ -476,7 +475,7 @@ const AdminDashboard = () => {
                           <p>Status: {event.status}</p>
                           <p>Players: {event._count.players}</p>
                           <p>Teams: {event._count.teams}</p>
-                          <p>Participants: {event._count.participants}</p>
+                          <p>Predictions: {event._count.submissions}</p>
                         </div>
                       </Link>
                     ))}
@@ -803,7 +802,7 @@ const AdminDashboard = () => {
                             <span className="font-medium">Teams:</span> {selectedEvent._count.teams}
                           </div>
                           <div>
-                            <span className="font-medium">Participants:</span> {selectedEvent._count.participants}
+                            <span className="font-medium">Predictions:</span> {selectedEvent._count.submissions}
                           </div>
                         </div>
                         <div className="mt-4">

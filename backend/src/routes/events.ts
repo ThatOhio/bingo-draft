@@ -28,7 +28,7 @@ router.get('/', async (req, res) => {
       include: {
         _count: {
           select: {
-            participants: true,
+            submissions: true,
             players: true,
             teams: true,
           },
@@ -72,7 +72,7 @@ router.get('/code/:eventCode', async (req, res) => {
         },
         _count: {
           select: {
-            participants: true,
+            submissions: true,
           },
         },
       },
@@ -116,7 +116,7 @@ router.get('/:id', async (req, res) => {
         draftOrder: true,
         _count: {
           select: {
-            participants: true,
+            submissions: true,
             draftPicks: true,
           },
         },

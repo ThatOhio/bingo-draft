@@ -12,7 +12,7 @@ interface Event {
   draftDeadline: string | null;
   draftStartTime: string | null;
   _count: {
-    participants: number;
+    submissions: number;
     players: number;
     teams: number;
   };
@@ -140,7 +140,7 @@ const Home = () => {
                     <div className="mt-4 text-sm text-gray-600">
                       <p>Players: {event._count.players}</p>
                       <p>Teams: {event._count.teams}</p>
-                      <p>Participants: {event._count.participants}</p>
+                      <p>Predictions: {event._count.submissions}</p>
                     </div>
                   </Link>
                 ))}

@@ -4,7 +4,7 @@ A full-stack web application for running fantasy draft events with real-time upd
 
 ## Features
 
-- **User Authentication**: Sign up, login, and role-based access control (Participant, Captain, Admin)
+- **User Authentication**: Sign up, login, and role-based access control (User, Admin)
 - **Event Management**: Create and manage draft events with customizable player pools
 - **Draft Order Submissions**: Users can submit their predictions for the draft order via drag-and-drop interface
 - **Live Draft**: Real-time snake draft with WebSocket updates for all participants
@@ -102,10 +102,10 @@ You'll need to create an admin user. You can either:
 - Use the registration endpoint and then update the role in the database
 - Or create a seed script
 
-To update a user to admin via SQL:
+To update a user to admin via SQL (use their `discordId` or `id` from the User table):
 
 ```sql
-UPDATE "User" SET role = 'ADMIN' WHERE email = 'your-email@example.com';
+UPDATE "User" SET role = 'ADMIN' WHERE "discordId" = 'your-discord-id';
 ```
 
 ### 7. Run the Application

@@ -3,17 +3,17 @@
  *
  * Creates:
  *   - 1 ADMIN (seed)
- *   - 2 CAPTAINS (seed)
- *   - 8 PARTICIPANTS (seed)
+ *   - 10 USERs (seed) — e.g. for assigning as team captains in Manage Event
  *
- * Use --with-event to also create a mock event with a seed captain, players, and teams.
+ * Use --with-event to also create a mock event with players and teams.
  * Run from backend: npm run db:seed or npm run db:seed:event
  *
  * To get a fresh mock event: npm run db:clear-events then npm run db:seed:event
  *
  * Note: Seed users use fake discordIds (SEED_*) and cannot log in via Discord OAuth.
- * To run a mock draft: log in as your real admin/captain account, create or use the
- * seeded event, add players/teams if needed, then initialize and run the draft.
+ * To run a mock draft: log in as your real admin account, create or use the
+ * seeded event, add players/teams and assign captains (Discord username), then
+ * initialize and run the draft.
  */
 
 import 'dotenv/config';
@@ -21,16 +21,16 @@ import prisma from '../src/db';
 
 const SEED_USERS = [
   { discordId: 'SEED_admin', discordUsername: 'Admin (seed)', role: 'ADMIN' as const },
-  { discordId: 'SEED_captain1', discordUsername: 'Captain One (seed)', role: 'CAPTAIN' as const },
-  { discordId: 'SEED_captain2', discordUsername: 'Captain Two (seed)', role: 'CAPTAIN' as const },
-  { discordId: 'SEED_user1', discordUsername: 'Alice (seed)', role: 'PARTICIPANT' as const },
-  { discordId: 'SEED_user2', discordUsername: 'Bob (seed)', role: 'PARTICIPANT' as const },
-  { discordId: 'SEED_user3', discordUsername: 'Carol (seed)', role: 'PARTICIPANT' as const },
-  { discordId: 'SEED_user4', discordUsername: 'Dave (seed)', role: 'PARTICIPANT' as const },
-  { discordId: 'SEED_user5', discordUsername: 'Eve (seed)', role: 'PARTICIPANT' as const },
-  { discordId: 'SEED_user6', discordUsername: 'Frank (seed)', role: 'PARTICIPANT' as const },
-  { discordId: 'SEED_user7', discordUsername: 'Grace (seed)', role: 'PARTICIPANT' as const },
-  { discordId: 'SEED_user8', discordUsername: 'Henry (seed)', role: 'PARTICIPANT' as const },
+  { discordId: 'SEED_user1', discordUsername: 'Alice (seed)', role: 'USER' as const },
+  { discordId: 'SEED_user2', discordUsername: 'Bob (seed)', role: 'USER' as const },
+  { discordId: 'SEED_user3', discordUsername: 'Carol (seed)', role: 'USER' as const },
+  { discordId: 'SEED_user4', discordUsername: 'Dave (seed)', role: 'USER' as const },
+  { discordId: 'SEED_user5', discordUsername: 'Eve (seed)', role: 'USER' as const },
+  { discordId: 'SEED_user6', discordUsername: 'Frank (seed)', role: 'USER' as const },
+  { discordId: 'SEED_user7', discordUsername: 'Grace (seed)', role: 'USER' as const },
+  { discordId: 'SEED_user8', discordUsername: 'Henry (seed)', role: 'USER' as const },
+  { discordId: 'SEED_captain1', discordUsername: 'Captain One (seed)', role: 'USER' as const },
+  { discordId: 'SEED_captain2', discordUsername: 'Captain Two (seed)', role: 'USER' as const },
 ];
 
 // Mock event: sample players (generic names for a fantasy-style draft)

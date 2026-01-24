@@ -61,7 +61,7 @@ router.get('/discord/callback', async (req, res) => {
         data: {
           discordId,
           discordUsername,
-          role: 'PARTICIPANT',
+          role: 'USER',
         },
       });
     } else {

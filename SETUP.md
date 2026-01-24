@@ -37,16 +37,16 @@ This will create all the necessary database tables.
 
 ### 4. Seed Test Users (optional, for local development)
 
-To populate the DB with test users (captains, participants) so you can exercise the Admin Dashboard and run mock events without multiple real Discord accounts:
+To populate the DB with test users so you can exercise the Admin Dashboard and run mock events without multiple real Discord accounts:
 
 ```bash
 cd backend
 npm run db:seed
 ```
 
-This creates 1 admin, 2 captains, and 8 participants with fake `SEED_*` discordIds. They **cannot log in** via Discord; they only exist in the DB so you can:
-- See and assign roles in Admin → Users
-- Run a mock draft: log in as your real account, create an event (you become captain), add players/teams, then Initialize Draft
+This creates 1 admin and 10 users with fake `SEED_*` discordIds. They **cannot log in** via Discord; they only exist in the DB so you can:
+- See and assign roles in Admin → Users (User vs Admin)
+- Run a mock draft: log in as your real admin account, create an event, add players/teams and assign team captains (Discord username), then Initialize Draft
 
 To also create a **mock event** (MOCK2024) with players and teams:
 
@@ -70,9 +70,9 @@ You have two options:
 **Option A: Via API (after starting server)**
 1. Start the backend: `cd backend && npm run dev`
 2. Register a user via POST to `/api/auth/register`
-3. Update the user role to ADMIN in the database:
+3. Update the user role to ADMIN in the database (use the user's `discordId` from the User table after they have logged in via Discord once):
    ```sql
-   UPDATE "User" SET role = 'ADMIN' WHERE email = 'your-email@example.com';
+   UPDATE "User" SET role = 'ADMIN' WHERE "discordId" = 'your-discord-id';
    ```
 
 **Option B: Direct SQL**

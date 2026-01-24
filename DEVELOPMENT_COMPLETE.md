@@ -80,14 +80,14 @@ npm install axios  # Added for Discord OAuth
 
 ## 🎯 Features Summary
 
-### For Participants
+### For Users
 - Login with Discord (no password needed)
 - Submit draft predictions (drag-and-drop)
 - View live draft board (public, no login required)
 - See stats and rankings after draft completes
 
-### For Captains
-- Make picks in real-time
+### For Team Captains (assigned per event in Manage Event)
+- Make picks in real-time when it's their team's turn
 - See current turn highlighted
 - View team rosters
 
