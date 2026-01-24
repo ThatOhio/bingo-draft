@@ -1,0 +1,158 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum EventStatus {
+  PLANNED
+  OPEN
+  DRAFTING
+  PAUSED
+  COMPLETED
+  CLOSED
+}
+
+model User {
+  id            String   @id @default(cuid())
+  discordId     String   @unique // Discord user ID
+  discordUsername String // Discord username (display name)
+  role          UserRole @default(USER)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  draftOrderSubmissions DraftOrderSubmission[]
+}
+
+model Event {
+  id              String      @id @default(cuid())
+  name            String
+  description     String?
+  eventCode       String      @unique
+  status          EventStatus @default(PLANNED)
+  draftDeadline   DateTime?
+  draftStartTime  DateTime?
+  teamDraftOrder  String[]    @default([])  // Team IDs in pick order (1st, 2nd, ...). Editable until initialize; empty = use teams by name.
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  // Relations
+  players         Player[]
+  teams           Team[]
+  draftPicks      DraftPick[]
+  draftOrder      DraftOrder?
+  submissions     DraftOrderSubmission[]
+}
+
+model Player {
+  id          String   @id @default(cuid())
+  name        String
+  team        String?
+  notes       String?
+  eventId     String
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  teamCaptains TeamCaptain[]
+  draftPicks  DraftPick[]
+  submissions DraftOrderSubmissionItem[]
+
+  @@index([eventId])
+}
+
+model Team {
+  id          String   @id @default(cuid())
+  name        String
+  eventId     String
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  captains    TeamCaptain[]
+  draftPicks  DraftPick[]
+
+  @@index([eventId])
+}
+
+model TeamCaptain {
+  id              String   @id @default(cuid())
+  teamId          String
+  team            Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  playerId        String
+  player          Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  discordUsername String   // Discord username to identify who can draft when logged in
+
+  @@unique([teamId, playerId])
+  @@unique([teamId, discordUsername])
+  @@index([teamId])
+}
+
+model DraftPick {
+  id          String   @id @default(cuid())
+  eventId     String
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  teamId      String
+  team        Team     @relation(fields: [teamId], references: [id])
+  playerId    String
+  player      Player   @relation(fields: [playerId], references: [id])
+  round       Int
+  pickNumber  Int      // Overall pick number (1, 2, 3, ...)
+  timestamp   DateTime @default(now())
+
+  @@index([eventId])
+  @@index([teamId])
+}
+
+model DraftOrder {
+  id          String   @id @default(cuid())
+  eventId     String   @unique
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  teamOrder   String[] // Array of team IDs in snake order
+  currentPick Int      @default(0) // Index in teamOrder array
+  currentRound Int     @default(1)
+  isReversed  Boolean  @default(false) // For snake draft: true when going backwards
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model DraftOrderSubmission {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventId     String
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  submittedAt DateTime @default(now())
+  locked      Boolean  @default(false)
+  teamOrder   String[] @default([])  // User's predicted team draft order (team IDs: 1st to pick, 2nd, etc.)
+
+  items       DraftOrderSubmissionItem[]
+
+  @@unique([userId, eventId])
+  @@index([eventId])
+}
+
+model DraftOrderSubmissionItem {
+  id          String   @id @default(cuid())
+  submissionId String
+  submission  DraftOrderSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  playerId    String
+  player      Player   @relation(fields: [playerId], references: [id])
+  position    Int      // Order in user's draft (1, 2, 3, ...)
+
+  @@unique([submissionId, position])
+  @@index([submissionId])
+}
+
