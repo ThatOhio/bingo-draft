@@ -24,7 +24,6 @@ const Home = () => {
   const { user } = useAuth();
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
-  const [eventCode, setEventCode] = useState('');
 
   useEffect(() => {
     fetchEvents();
@@ -38,12 +37,6 @@ const Home = () => {
       console.error('Failed to fetch events:', error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleJoinEvent = () => {
-    if (eventCode.trim()) {
-      window.location.href = `/event/${eventCode.trim()}`;
     }
   };
 
@@ -91,26 +84,6 @@ const Home = () => {
 
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
-          <div className="mb-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Join an Event</h2>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                placeholder="Enter event code"
-                value={eventCode}
-                onChange={(e) => setEventCode(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleJoinEvent()}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-              <button
-                onClick={handleJoinEvent}
-                className="px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-              >
-                Join
-              </button>
-            </div>
-          </div>
-
           <div>
             <h2 className="text-2xl font-bold text-gray-900 mb-4">All Events</h2>
             {loading ? (

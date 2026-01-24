@@ -34,7 +34,6 @@ model User {
 
   // Relations
   draftOrderSubmissions DraftOrderSubmission[]
-  eventParticipants  EventParticipant[]
 }
 
 model Event {
@@ -53,7 +52,6 @@ model Event {
   players         Player[]
   teams           Team[]
   draftPicks      DraftPick[]
-  participants    EventParticipant[]
   draftOrder      DraftOrder?
   submissions     DraftOrderSubmission[]
 }
@@ -158,14 +156,3 @@ model DraftOrderSubmissionItem {
   @@index([submissionId])
 }
 
-model EventParticipant {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  eventId   String
-  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  joinedAt  DateTime @default(now())
-
-  @@unique([userId, eventId])
-  @@index([eventId])
-}

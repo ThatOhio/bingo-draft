@@ -79,8 +79,23 @@ router.get('/discord/callback', async (req, res) => {
       { expiresIn: '7d' }
     );
 
-    // Redirect to frontend with token
-    res.redirect(`${FRONTEND_URL}/auth/callback?token=${token}`);
+    // Decode state for return-to-event: state is base64 JSON { eventCode }
+    let eventCode: string | undefined;
+    if (state && typeof state === 'string') {
+      try {
+        const decoded = JSON.parse(Buffer.from(state, 'base64').toString('utf8'));
+        if (decoded?.eventCode && typeof decoded.eventCode === 'string') {
+          eventCode = decoded.eventCode;
+        }
+      } catch {
+        // ignore invalid state
+      }
+    }
+
+    const callbackUrl = new URL(`${FRONTEND_URL}/auth/callback`);
+    callbackUrl.searchParams.set('token', token);
+    if (eventCode) callbackUrl.searchParams.set('eventCode', eventCode);
+    res.redirect(callbackUrl.toString());
   } catch (error) {
     console.error('Discord OAuth error:', error);
     res.redirect(`${FRONTEND_URL}/login?error=oauth_failed`);

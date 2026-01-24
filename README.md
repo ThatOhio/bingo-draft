@@ -4,7 +4,7 @@ A full-stack web application for running fantasy draft events with real-time upd
 
 ## Features
 
-- **User Authentication**: Sign up, login, and role-based access control (User, Admin)
+- **User Authentication**: Sign in with Discord (first sign-in creates the user) and role-based access control (User, Admin)
 - **Event Management**: Create and manage draft events with customizable player pools
 - **Draft Order Submissions**: Users can submit their predictions for the draft order via drag-and-drop interface
 - **Live Draft**: Real-time snake draft with WebSocket updates for all participants
@@ -27,7 +27,7 @@ A full-stack web application for running fantasy draft events with real-time upd
 - PostgreSQL database with Prisma ORM
 - Socket.io for real-time WebSocket communication
 - JWT for authentication
-- bcryptjs for password hashing
+- Discord OAuth for sign-in
 - Zod for input validation
 
 ## Prerequisites
@@ -78,6 +78,11 @@ DATABASE_URL="postgresql://user:password@localhost:5432/bingo_draft?schema=publi
 JWT_SECRET="your-secret-key-change-in-production"
 PORT=3001
 FRONTEND_URL="http://localhost:5173"
+
+# Discord OAuth
+DISCORD_CLIENT_ID="your-discord-client-id"
+DISCORD_CLIENT_SECRET="your-discord-client-secret"
+DISCORD_REDIRECT_URI="http://localhost:3001/api/auth/discord/callback"
 ```
 
 #### Frontend
@@ -98,15 +103,13 @@ npm run db:migrate
 
 ### 6. Create Admin User
 
-You'll need to create an admin user. You can either:
-- Use the registration endpoint and then update the role in the database
-- Or create a seed script
-
-To update a user to admin via SQL (use their `discordId` or `id` from the User table):
+Sign in with Discord once (this creates your user). Then promote yourself to admin:
 
 ```sql
 UPDATE "User" SET role = 'ADMIN' WHERE "discordId" = 'your-discord-id';
 ```
+
+Use your Discord user ID from the User table, or from the Discord Developer Portal.
 
 ### 7. Run the Application
 
@@ -164,8 +167,8 @@ npx serve -s dist
 
 ### Submitting Draft Predictions
 
-1. Users join the event using the event code
-2. Navigate to "Submit Draft Order"
+1. Open an event from the home page or via `/event/:eventCode`
+2. Sign in with Discord, then navigate to "Submit Draft Order"
 3. Drag and drop players to arrange your predicted draft order
 4. Submit before the deadline
 
@@ -186,9 +189,9 @@ After the draft completes:
 ## API Endpoints
 
 ### Authentication
-- `POST /api/auth/register` - Register new user
-- `POST /api/auth/login` - Login
-- `GET /api/auth/me` - Get current user
+- `GET /api/auth/discord/url` - Get Discord OAuth URL (optionally `?eventCode=X` to return to event after sign-in)
+- `GET /api/auth/discord/callback` - Discord OAuth callback (handles token exchange, redirects to frontend)
+- `GET /api/auth/me` - Get current user (requires `Authorization: Bearer <token>`)
 
 ### Events
 - `GET /api/events` - List all events

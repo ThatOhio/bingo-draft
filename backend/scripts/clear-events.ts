@@ -1,6 +1,6 @@
 /**
  * Clear all events from the database. Related data (players, teams, draft picks,
- * draft order, submissions, participants) is removed by cascade.
+ * draft order, submissions) is removed by cascade.
  *
  * DraftOrderSubmissionItem is deleted first because it references Player without
  * onDelete; otherwise Event's cascade to Player hits a foreign key violation.

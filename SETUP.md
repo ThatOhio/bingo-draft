@@ -12,18 +12,23 @@
 npm run install:all
 ```
 
-### 2. Set Up Database
+### 2. Set Up Database and Environment
 
-Create a `.env` file in the `backend` directory:
+Create a `.env` file in the `backend` directory (see `backend/.env.example`):
 
 ```env
 DATABASE_URL="postgresql://username:password@localhost:5432/bingo_draft?schema=public"
 JWT_SECRET="change-this-to-a-random-secret-key"
 PORT=3001
 FRONTEND_URL="http://localhost:5173"
+
+# Discord OAuth (required for sign-in)
+DISCORD_CLIENT_ID="your-discord-client-id"
+DISCORD_CLIENT_SECRET="your-discord-client-secret"
+DISCORD_REDIRECT_URI="http://localhost:3001/api/auth/discord/callback"
 ```
 
-Replace `username` and `password` with your PostgreSQL credentials.
+Replace `username` and `password` with your PostgreSQL credentials. Create a Discord Application in the [Discord Developer Portal](https://discord.com/developers/applications) and set the OAuth2 redirect URI to match `DISCORD_REDIRECT_URI`.
 
 ### 3. Run Database Migrations
 
@@ -65,31 +70,13 @@ npm run db:seed:event
 
 ### 5. Create Your First Admin User
 
-You have two options:
-
-**Option A: Via API (after starting server)**
-1. Start the backend: `cd backend && npm run dev`
-2. Register a user via POST to `/api/auth/register`
-3. Update the user role to ADMIN in the database (use the user's `discordId` from the User table after they have logged in via Discord once):
+1. Start the backend: `cd backend && npm run dev` (and frontend: `cd frontend && npm run dev`).
+2. Sign in with Discord via the app (this creates your user in the database).
+3. Promote your user to admin:
    ```sql
    UPDATE "User" SET role = 'ADMIN' WHERE "discordId" = 'your-discord-id';
    ```
-
-**Option B: Direct SQL**
-```sql
--- First, hash a password (you can use an online bcrypt generator or create a small script)
--- Example: password "admin123" hashed = $2a$10$...
-INSERT INTO "User" (id, email, name, password, role, "createdAt", "updatedAt")
-VALUES (
-  'admin-id-here',
-  'admin@example.com',
-  'Admin User',
-  '$2a$10$...', -- Replace with actual bcrypt hash
-  'ADMIN',
-  NOW(),
-  NOW()
-);
-```
+   Use your Discord user ID (from the User table after sign-in, or from the Discord Developer Portal).
 
 ### 6. Start Development Servers
 
@@ -170,7 +157,7 @@ npm run dev
 ## Next Steps
 
 1. Create events and import your player pools
-2. Invite users to register and submit draft orders
+2. Invite users to sign in with Discord and submit draft orders
 3. Run the live draft when ready
 4. View stats and rankings after completion
 

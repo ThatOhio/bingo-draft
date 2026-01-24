@@ -151,7 +151,7 @@ const EventPage = () => {
                 className="bg-white shadow rounded-lg p-6 hover:shadow-lg transition-shadow"
               >
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                  {hasSubmission ? 'Edit your prediction' : 'Save your prediction'}
+                  {hasSubmission ? 'Edit your prediction' : 'Create your prediction'}
                 </h3>
                 <p className="text-gray-600">
                   {hasSubmission
@@ -201,12 +201,11 @@ const EventPage = () => {
           {!user && (
             <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
               <p className="text-blue-800">
-                <Link to={`/login?eventCode=${eventCode}`} className="font-semibold underline">
-                  Sign in
-                </Link>{' '}
-                or{' '}
-                <Link to={`/register?eventCode=${eventCode}`} className="font-semibold underline">
-                  create an account
+                <Link
+                  to={`/login${eventCode ? `?eventCode=${eventCode}` : ''}`}
+                  className="font-semibold underline"
+                >
+                  Sign in with Discord
                 </Link>{' '}
                 to participate in this event.
               </p>

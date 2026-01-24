@@ -1,11 +1,9 @@
 import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
 
 const AuthCallback = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { logout } = useAuth();
 
   useEffect(() => {
     const token = searchParams.get('token');
@@ -19,8 +17,9 @@ const AuthCallback = () => {
 
     if (token) {
       localStorage.setItem('token', token);
-      // Reload to trigger auth context update
-      window.location.href = '/';
+      const eventCode = searchParams.get('eventCode');
+      // Return to event page if user signed in from an event
+      window.location.href = eventCode ? `/event/${eventCode}` : '/';
     } else {
       navigate('/login');
     }
