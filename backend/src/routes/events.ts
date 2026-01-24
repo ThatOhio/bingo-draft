@@ -26,12 +26,6 @@ router.get('/', async (req, res) => {
   try {
     const events = await prisma.event.findMany({
       include: {
-        captain: {
-          select: {
-            id: true,
-            discordUsername: true,
-          },
-        },
         _count: {
           select: {
             participants: true,
@@ -59,12 +53,6 @@ router.get('/code/:eventCode', async (req, res) => {
     const event = await prisma.event.findUnique({
       where: { eventCode },
       include: {
-        captain: {
-          select: {
-            id: true,
-            discordUsername: true,
-          },
-        },
         players: {
           orderBy: {
             name: 'asc',
@@ -73,6 +61,13 @@ router.get('/code/:eventCode', async (req, res) => {
         teams: {
           orderBy: {
             name: 'asc',
+          },
+          include: {
+            captains: {
+              include: {
+                player: true,
+              },
+            },
           },
         },
         _count: {
@@ -101,12 +96,6 @@ router.get('/:id', async (req, res) => {
     const event = await prisma.event.findUnique({
       where: { id },
       include: {
-        captain: {
-          select: {
-            id: true,
-            discordUsername: true,
-          },
-        },
         players: {
           orderBy: {
             name: 'asc',
@@ -115,6 +104,13 @@ router.get('/:id', async (req, res) => {
         teams: {
           orderBy: {
             name: 'asc',
+          },
+          include: {
+            captains: {
+              include: {
+                player: true,
+              },
+            },
           },
         },
         draftOrder: true,
@@ -138,11 +134,10 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Create event (admin/captain only)
-router.post('/', authenticate, requireRole('ADMIN', 'CAPTAIN'), async (req: AuthRequest, res) => {
+// Create event (admin only)
+router.post('/', authenticate, requireRole('ADMIN'), async (req: AuthRequest, res) => {
   try {
     const data = createEventSchema.parse(req.body);
-    const userId = req.userId!;
 
     // Check if event code already exists
     const existingEvent = await prisma.event.findUnique({
@@ -158,15 +153,6 @@ router.post('/', authenticate, requireRole('ADMIN', 'CAPTAIN'), async (req: Auth
         ...data,
         draftDeadline: data.draftDeadline ? new Date(data.draftDeadline) : null,
         draftStartTime: data.draftStartTime ? new Date(data.draftStartTime) : null,
-        captainId: userId,
-      },
-      include: {
-        captain: {
-          select: {
-            id: true,
-            discordUsername: true,
-          },
-        },
       },
     });
 
@@ -180,13 +166,12 @@ router.post('/', authenticate, requireRole('ADMIN', 'CAPTAIN'), async (req: Auth
   }
 });
 
-// Update event
-router.put('/:id', authenticate, async (req: AuthRequest, res) => {
+// Update event (admin only)
+router.put('/:id', authenticate, requireRole('ADMIN'), async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
     const data = updateEventSchema.parse(req.body);
 
-    // Check permissions
     const event = await prisma.event.findUnique({
       where: { id },
     });
@@ -195,27 +180,12 @@ router.put('/:id', authenticate, async (req: AuthRequest, res) => {
       return res.status(404).json({ error: 'Event not found' });
     }
 
-    const isAdmin = req.userRole === 'ADMIN';
-    const isCaptain = event.captainId === req.userId;
-
-    if (!isAdmin && !isCaptain) {
-      return res.status(403).json({ error: 'Insufficient permissions' });
-    }
-
     const updatedEvent = await prisma.event.update({
       where: { id },
       data: {
         ...data,
         draftDeadline: data.draftDeadline ? new Date(data.draftDeadline) : undefined,
         draftStartTime: data.draftStartTime ? new Date(data.draftStartTime) : undefined,
-      },
-      include: {
-        captain: {
-          select: {
-            id: true,
-            discordUsername: true,
-          },
-        },
       },
     });
 
@@ -229,8 +199,8 @@ router.put('/:id', authenticate, async (req: AuthRequest, res) => {
   }
 });
 
-// Bulk import players from text (pasteable list)
-router.post('/:id/players/bulk-import', authenticate, async (req: AuthRequest, res) => {
+// Bulk import players from text (pasteable list) (admin only)
+router.post('/:id/players/bulk-import', authenticate, requireRole('ADMIN'), async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
     const { text } = req.body; // Text with one player per line
@@ -239,20 +209,12 @@ router.post('/:id/players/bulk-import', authenticate, async (req: AuthRequest, r
       return res.status(400).json({ error: 'Text content is required' });
     }
 
-    // Check permissions
     const event = await prisma.event.findUnique({
       where: { id },
     });
 
     if (!event) {
       return res.status(404).json({ error: 'Event not found' });
-    }
-
-    const isAdmin = req.userRole === 'ADMIN';
-    const isCaptain = event.captainId === req.userId;
-
-    if (!isAdmin && !isCaptain) {
-      return res.status(403).json({ error: 'Insufficient permissions' });
     }
 
     // Parse text: one player per line, optionally with format "Name | Team | Notes"
@@ -288,8 +250,8 @@ router.post('/:id/players/bulk-import', authenticate, async (req: AuthRequest, r
   }
 });
 
-// Import players
-router.post('/:id/players/import', authenticate, async (req: AuthRequest, res) => {
+// Import players (admin only)
+router.post('/:id/players/import', authenticate, requireRole('ADMIN'), async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
     const { players } = req.body;
@@ -298,20 +260,12 @@ router.post('/:id/players/import', authenticate, async (req: AuthRequest, res) =
       return res.status(400).json({ error: 'Players must be an array' });
     }
 
-    // Check permissions
     const event = await prisma.event.findUnique({
       where: { id },
     });
 
     if (!event) {
       return res.status(404).json({ error: 'Event not found' });
-    }
-
-    const isAdmin = req.userRole === 'ADMIN';
-    const isCaptain = event.captainId === req.userId;
-
-    if (!isAdmin && !isCaptain) {
-      return res.status(403).json({ error: 'Insufficient permissions' });
     }
 
     // Delete existing players
@@ -336,41 +290,128 @@ router.post('/:id/players/import', authenticate, async (req: AuthRequest, res) =
   }
 });
 
-// Add team
-router.post('/:id/teams', authenticate, async (req: AuthRequest, res) => {
-  try {
-    const { id } = req.params;
-    const { name } = req.body;
+const addCaptainSchema = z.object({
+  playerId: z.string().min(1),
+  discordUsername: z.string().min(1),
+});
 
-    if (!name) {
-      return res.status(400).json({ error: 'Team name is required' });
+// Add captain to team (admin only) – must be before POST /:id/teams
+router.post('/:id/teams/:teamId/captains', authenticate, requireRole('ADMIN'), async (req: AuthRequest, res) => {
+  try {
+    const { id: eventId, teamId } = req.params;
+    const data = addCaptainSchema.parse(req.body);
+
+    const team = await prisma.team.findFirst({
+      where: { id: teamId, eventId },
+      include: { event: { select: { id: true } } },
+    });
+    if (!team) {
+      return res.status(404).json({ error: 'Team not found' });
     }
 
-    // Check permissions
+    const player = await prisma.player.findFirst({
+      where: { id: data.playerId, eventId },
+    });
+    if (!player) {
+      return res.status(400).json({ error: 'Player must belong to this event' });
+    }
+
+    const captain = await prisma.teamCaptain.create({
+      data: {
+        teamId,
+        playerId: data.playerId,
+        discordUsername: data.discordUsername.trim(),
+      },
+      include: {
+        player: true,
+      },
+    });
+    res.status(201).json({ captain });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: error.errors });
+    }
+    console.error('Add captain error:', error);
+    res.status(500).json({ error: 'Failed to add captain' });
+  }
+});
+
+// Remove captain from team (admin only)
+router.delete('/:id/teams/:teamId/captains/:captainId', authenticate, requireRole('ADMIN'), async (req: AuthRequest, res) => {
+  try {
+    const { teamId, captainId } = req.params;
+
+    const captain = await prisma.teamCaptain.findFirst({
+      where: { id: captainId, teamId },
+    });
+    if (!captain) {
+      return res.status(404).json({ error: 'Captain not found' });
+    }
+
+    await prisma.teamCaptain.delete({
+      where: { id: captainId },
+    });
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Remove captain error:', error);
+    res.status(500).json({ error: 'Failed to remove captain' });
+  }
+});
+
+const createTeamSchema = z.object({
+  name: z.string().min(1),
+  captains: z.array(z.object({
+    playerId: z.string().min(1),
+    discordUsername: z.string().min(1),
+  })).optional().default([]),
+});
+
+// Add team (admin only) – name required; captains optional (can add later)
+router.post('/:id/teams', authenticate, requireRole('ADMIN'), async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+    const { name, captains } = createTeamSchema.parse(req.body);
+
     const event = await prisma.event.findUnique({
       where: { id },
+      include: { players: { select: { id: true } } },
     });
-
     if (!event) {
       return res.status(404).json({ error: 'Event not found' });
     }
 
-    const isAdmin = req.userRole === 'ADMIN';
-    const isCaptain = event.captainId === req.userId;
-
-    if (!isAdmin && !isCaptain) {
-      return res.status(403).json({ error: 'Insufficient permissions' });
+    const playerIds = event.players.map((p) => p.id);
+    for (const c of captains) {
+      if (!playerIds.includes(c.playerId)) {
+        return res.status(400).json({ error: `Player ${c.playerId} is not in this event` });
+      }
     }
 
     const team = await prisma.team.create({
       data: {
         eventId: id,
         name,
+        captains: {
+          create: captains.map((c) => ({
+            playerId: c.playerId,
+            discordUsername: c.discordUsername.trim(),
+          })),
+        },
+      },
+      include: {
+        captains: {
+          include: {
+            player: true,
+          },
+        },
       },
     });
 
     res.status(201).json({ team });
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: error.errors });
+    }
     console.error('Create team error:', error);
     res.status(500).json({ error: 'Failed to create team' });
   }

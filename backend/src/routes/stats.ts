@@ -1,6 +1,6 @@
 import express from 'express';
 import prisma from '../db';
-import { authenticate, AuthRequest } from '../middleware/auth';
+import { authenticate, AuthRequest, requireRole } from '../middleware/auth';
 
 const router = express.Router();
 
@@ -256,25 +256,17 @@ router.get('/:eventId/my-stats', authenticate, async (req: AuthRequest, res) => 
   }
 });
 
-// Export data (admin/captain only)
-router.get('/:eventId/export', authenticate, async (req: AuthRequest, res) => {
+// Export data (admin only)
+router.get('/:eventId/export', authenticate, requireRole('ADMIN'), async (req: AuthRequest, res) => {
   try {
     const { eventId } = req.params;
 
-    // Check permissions
     const event = await prisma.event.findUnique({
       where: { id: eventId },
     });
 
     if (!event) {
       return res.status(404).json({ error: 'Event not found' });
-    }
-
-    const isAdmin = req.userRole === 'ADMIN';
-    const isCaptain = event.captainId === req.userId;
-
-    if (!isAdmin && !isCaptain) {
-      return res.status(403).json({ error: 'Insufficient permissions' });
     }
 
     // Get all data
@@ -284,6 +276,7 @@ router.get('/:eventId/export', authenticate, async (req: AuthRequest, res) => {
         players: true,
         teams: {
           include: {
+            captains: { include: { player: true } },
             draftPicks: {
               include: {
                 player: true,

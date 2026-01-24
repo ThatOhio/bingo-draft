@@ -67,11 +67,6 @@ async function seedUsers() {
 }
 
 async function seedEvent() {
-  const captain = await prisma.user.findUnique({ where: { discordId: 'SEED_captain1' } });
-  if (!captain) {
-    throw new Error('Seed captain SEED_captain1 not found. Run user seed first.');
-  }
-
   const eventCode = 'MOCK2024';
   const existing = await prisma.event.findUnique({ where: { eventCode } });
   if (existing) {
@@ -85,7 +80,6 @@ async function seedEvent() {
       description: 'Seeded event for local testing. Add more players/teams in Admin → Manage Event.',
       eventCode,
       status: 'OPEN',
-      captainId: captain.id,
     },
   });
 
@@ -130,10 +124,9 @@ async function main() {
       await seedEvent();
     }
     console.log('\nDone. Seed users cannot log in via Discord (fake discordIds).');
-    console.log('  - In Admin Dashboard → Users: assign CAPTAIN to seed users if desired.');
-    console.log('  - Create events while logged in as your real account; you will be the captain.');
+    console.log('  - Create events while logged in as an ADMIN. In Manage Event, add teams and assign captains (player + Discord username).');
     if (withEvent) {
-      console.log('  - Mock event MOCK2024: go to Admin → Manage Event to add players/teams, set OPEN, then Initialize Draft.');
+      console.log('  - Mock event MOCK2024: go to Admin → Manage Event to add players, add teams with captains, set OPEN, then Initialize Draft.');
     }
   } catch (e) {
     console.error(e);

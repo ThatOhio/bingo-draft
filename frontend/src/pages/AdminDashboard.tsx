@@ -45,9 +45,12 @@ const AdminDashboard = () => {
   
   // Team management state
   const [newTeamName, setNewTeamName] = useState('');
+  const [newTeamCaptains, setNewTeamCaptains] = useState<Array<{ playerId: string; discordUsername: string }>>([]);
   const [creatingTeam, setCreatingTeam] = useState(false);
   const [eventDetails, setEventDetails] = useState<any>(null);
-  
+  const [addCaptainByTeam, setAddCaptainByTeam] = useState<Record<string, { playerId: string; discordUsername: string }>>({});
+  const [addingCaptainToTeamId, setAddingCaptainToTeamId] = useState<string | null>(null);
+
   // Export state
   const [exporting, setExporting] = useState(false);
 
@@ -157,19 +160,55 @@ const AdminDashboard = () => {
       return;
     }
 
+    const captains = newTeamCaptains.filter((c) => c.playerId && c.discordUsername.trim());
     setCreatingTeam(true);
     try {
       await axios.post(`${API_URL}/api/events/${selectedEvent.id}/teams`, {
         name: newTeamName,
+        captains: captains.map((c) => ({ playerId: c.playerId, discordUsername: c.discordUsername.trim() })),
       });
       alert('Team created successfully!');
       setNewTeamName('');
+      setNewTeamCaptains([]);
       fetchEventDetails(selectedEvent.id);
       fetchData();
     } catch (error: any) {
       alert(error.response?.data?.error || 'Failed to create team');
     } finally {
       setCreatingTeam(false);
+    }
+  };
+
+  const handleAddCaptain = async (teamId: string) => {
+    const form = addCaptainByTeam[teamId];
+    if (!form?.playerId || !form.discordUsername.trim()) {
+      alert('Select a player and enter Discord username');
+      return;
+    }
+    if (!selectedEvent) return;
+    setAddingCaptainToTeamId(teamId);
+    try {
+      await axios.post(`${API_URL}/api/events/${selectedEvent.id}/teams/${teamId}/captains`, {
+        playerId: form.playerId,
+        discordUsername: form.discordUsername.trim(),
+      });
+      setAddCaptainByTeam((prev) => ({ ...prev, [teamId]: { playerId: '', discordUsername: '' } }));
+      fetchEventDetails(selectedEvent.id);
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Failed to add captain');
+    } finally {
+      setAddingCaptainToTeamId(null);
+    }
+  };
+
+  const handleRemoveCaptain = async (teamId: string, captainId: string) => {
+    if (!selectedEvent) return;
+    if (!confirm('Remove this captain?')) return;
+    try {
+      await axios.delete(`${API_URL}/api/events/${selectedEvent.id}/teams/${teamId}/captains/${captainId}`);
+      fetchEventDetails(selectedEvent.id);
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Failed to remove captain');
     }
   };
 
@@ -448,33 +487,141 @@ const AdminDashboard = () => {
                       <div className="bg-white border border-gray-200 p-4 rounded-lg">
                         <h3 className="text-lg font-semibold text-gray-900 mb-3">Manage Teams</h3>
                         {eventDetails && (
-                          <div className="mb-4">
-                            <p className="text-sm text-gray-600 mb-2">Current Teams ({eventDetails.teams?.length || 0}):</p>
-                            <div className="flex flex-wrap gap-2">
-                              {eventDetails.teams?.map((team: any) => (
-                                <span key={team.id} className="px-3 py-1 bg-gray-100 rounded-md text-sm">
-                                  {team.name}
-                                </span>
-                              ))}
-                            </div>
+                          <div className="mb-4 space-y-4">
+                            <p className="text-sm text-gray-600">Current Teams ({eventDetails.teams?.length || 0}):</p>
+                            {eventDetails.teams?.map((team: any) => (
+                              <div key={team.id} className="border border-gray-200 rounded-lg p-3">
+                                <p className="font-medium text-gray-900 mb-2">{team.name}</p>
+                                <div className="space-y-2">
+                                  {team.captains?.map((cap: any) => (
+                                    <div key={cap.id} className="flex items-center justify-between gap-2 py-1 text-sm">
+                                      <span>{cap.player?.name} — @{cap.discordUsername}</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRemoveCaptain(team.id, cap.id)}
+                                        className="text-red-600 hover:text-red-800"
+                                      >
+                                        Remove
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                                <div className="mt-2 flex flex-wrap gap-2 items-end">
+                                  <div>
+                                    <label className="block text-xs text-gray-500 mb-0.5">Player</label>
+                                    <select
+                                      value={addCaptainByTeam[team.id]?.playerId || ''}
+                                      onChange={(e) =>
+                                        setAddCaptainByTeam((prev) => ({
+                                          ...prev,
+                                          [team.id]: { ...(prev[team.id] || { playerId: '', discordUsername: '' }), playerId: e.target.value },
+                                        }))
+                                      }
+                                      className="px-2 py-1.5 border border-gray-300 rounded text-sm"
+                                    >
+                                      <option value="">— Select —</option>
+                                      {(eventDetails.players || []).map((p: any) => (
+                                        <option key={p.id} value={p.id}>{p.name}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs text-gray-500 mb-0.5">Discord username</label>
+                                    <input
+                                      type="text"
+                                      value={addCaptainByTeam[team.id]?.discordUsername || ''}
+                                      onChange={(e) =>
+                                        setAddCaptainByTeam((prev) => ({
+                                          ...prev,
+                                          [team.id]: { ...(prev[team.id] || { playerId: '', discordUsername: '' }), discordUsername: e.target.value },
+                                        }))
+                                      }
+                                      placeholder="username"
+                                      className="px-2 py-1.5 border border-gray-300 rounded text-sm w-36"
+                                    />
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleAddCaptain(team.id)}
+                                    disabled={addingCaptainToTeamId === team.id || !addCaptainByTeam[team.id]?.playerId || !addCaptainByTeam[team.id]?.discordUsername?.trim()}
+                                    className="px-3 py-1.5 bg-indigo-600 text-white rounded text-sm hover:bg-indigo-700 disabled:opacity-50"
+                                  >
+                                    {addingCaptainToTeamId === team.id ? 'Adding...' : 'Add Captain'}
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
                           </div>
                         )}
-                        <div className="flex gap-2">
-                          <input
-                            type="text"
-                            value={newTeamName}
-                            onChange={(e) => setNewTeamName(e.target.value)}
-                            placeholder="Team name"
-                            className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            onKeyPress={(e) => e.key === 'Enter' && handleCreateTeam()}
-                          />
-                          <button
-                            onClick={handleCreateTeam}
-                            disabled={creatingTeam || !newTeamName.trim()}
-                            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
-                          >
-                            {creatingTeam ? 'Adding...' : 'Add Team'}
-                          </button>
+                        <p className="text-sm text-gray-600 mb-2">Create new team (add captains now or later):</p>
+                        <div className="space-y-3">
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={newTeamName}
+                              onChange={(e) => setNewTeamName(e.target.value)}
+                              placeholder="Team name *"
+                              className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                              onKeyPress={(e) => e.key === 'Enter' && handleCreateTeam()}
+                            />
+                            <button
+                              onClick={handleCreateTeam}
+                              disabled={creatingTeam || !newTeamName.trim()}
+                              className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+                            >
+                              {creatingTeam ? 'Adding...' : 'Add Team'}
+                            </button>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-600 mb-1">Captains (player + Discord username; must already be in this event):</p>
+                            {newTeamCaptains.map((c, i) => (
+                              <div key={i} className="flex gap-2 items-center mb-2">
+                                <select
+                                  value={c.playerId}
+                                  onChange={(e) =>
+                                    setNewTeamCaptains((prev) => {
+                                      const n = [...prev];
+                                      n[i] = { ...n[i], playerId: e.target.value };
+                                      return n;
+                                    })
+                                  }
+                                  className="px-2 py-1.5 border border-gray-300 rounded text-sm flex-1 max-w-[12rem]"
+                                >
+                                  <option value="">— Player —</option>
+                                  {(eventDetails?.players || []).map((p: any) => (
+                                    <option key={p.id} value={p.id}>{p.name}</option>
+                                  ))}
+                                </select>
+                                <input
+                                  type="text"
+                                  value={c.discordUsername}
+                                  onChange={(e) =>
+                                    setNewTeamCaptains((prev) => {
+                                      const n = [...prev];
+                                      n[i] = { ...n[i], discordUsername: e.target.value };
+                                      return n;
+                                    })
+                                  }
+                                  placeholder="Discord username"
+                                  className="px-2 py-1.5 border border-gray-300 rounded text-sm flex-1 max-w-[10rem]"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => setNewTeamCaptains((prev) => prev.filter((_, j) => j !== i))}
+                                  className="text-red-600 hover:text-red-800"
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            ))}
+                            <button
+                              type="button"
+                              onClick={() => setNewTeamCaptains((prev) => [...prev, { playerId: '', discordUsername: '' }])}
+                              className="text-sm text-indigo-600 hover:text-indigo-800"
+                            >
+                              + Add captain
+                            </button>
+                          </div>
                         </div>
                       </div>
 

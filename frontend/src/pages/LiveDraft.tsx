@@ -13,6 +13,7 @@ interface Player {
 interface Team {
   id: string;
   name: string;
+  captains?: Array<{ id?: string; discordUsername: string; player?: Player }>;
   draftPicks: Array<{
     id: string;
     player: Player;
@@ -128,10 +129,14 @@ const LiveDraft = () => {
     if (!selectedPlayer || !event || !draftState) return;
 
     const isAdmin = user?.role === 'ADMIN';
-    const isCaptain = event.captainId === user?.id;
+    const currentTeam = draftState.currentTeam;
+    const discordUsername = (user?.discordUsername ?? '').toLowerCase();
+    const isCaptainOfCurrentTeam = !!currentTeam?.captains?.some(
+      (c: any) => (c.discordUsername || '').toLowerCase() === discordUsername
+    );
 
-    if (!isAdmin && !isCaptain) {
-      alert('Only captains and admins can make picks');
+    if (!isAdmin && !isCaptainOfCurrentTeam) {
+      alert('Only the current team\'s captains and admins can make picks');
       return;
     }
 
@@ -175,10 +180,15 @@ const LiveDraft = () => {
     if (!event) return;
 
     const isAdmin = user?.role === 'ADMIN';
-    const isCaptain = event.captainId === user?.id;
+    const lastPick = draftState?.picks?.length ? draftState.picks[draftState.picks.length - 1] : null;
+    const lastTeam = lastPick?.team;
+    const discordUsername = (user?.discordUsername ?? '').toLowerCase();
+    const isCaptainOfLastTeam = !!lastTeam?.captains?.some(
+      (c: any) => (c.discordUsername || '').toLowerCase() === discordUsername
+    );
 
-    if (!isAdmin && !isCaptain) {
-      alert('Only captains can undo picks');
+    if (!isAdmin && !isCaptainOfLastTeam) {
+      alert('Only the picking team\'s captains and admins can undo');
       return;
     }
 
@@ -206,7 +216,12 @@ const LiveDraft = () => {
     player.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const canMakePick = user && (user.role === 'ADMIN' || event?.captainId === user.id);
+  const currentTeam = draftState?.currentTeam;
+  const discordUsername = (user?.discordUsername ?? '').toLowerCase();
+  const isCaptainOfCurrentTeam = !!currentTeam?.captains?.some(
+    (c: any) => (c.discordUsername || '').toLowerCase() === discordUsername
+  );
+  const canMakePick = user && (user.role === 'ADMIN' || isCaptainOfCurrentTeam);
   const isAdmin = user?.role === 'ADMIN';
   const canPauseResume = isAdmin && event && (event.status === 'DRAFTING' || event.status === 'PAUSED');
 

@@ -34,7 +34,6 @@ model User {
   updatedAt     DateTime @updatedAt
 
   // Relations
-  eventsAsCaptain    Event[]           @relation("EventCaptain")
   draftOrderSubmissions DraftOrderSubmission[]
   eventParticipants  EventParticipant[]
 }
@@ -51,8 +50,6 @@ model Event {
   updatedAt       DateTime    @updatedAt
 
   // Relations
-  captainId       String
-  captain         User        @relation("EventCaptain", fields: [captainId], references: [id])
   players         Player[]
   teams           Team[]
   draftPicks      DraftPick[]
@@ -71,6 +68,7 @@ model Player {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  teamCaptains TeamCaptain[]
   draftPicks  DraftPick[]
   submissions DraftOrderSubmissionItem[]
 
@@ -85,9 +83,23 @@ model Team {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  captains    TeamCaptain[]
   draftPicks  DraftPick[]
 
   @@index([eventId])
+}
+
+model TeamCaptain {
+  id              String   @id @default(cuid())
+  teamId          String
+  team            Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  playerId        String
+  player          Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  discordUsername String   // Discord username to identify who can draft when logged in
+
+  @@unique([teamId, playerId])
+  @@unique([teamId, discordUsername])
+  @@index([teamId])
 }
 
 model DraftPick {

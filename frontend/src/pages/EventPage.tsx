@@ -11,10 +11,6 @@ interface Event {
   status: string;
   draftDeadline: string | null;
   draftStartTime: string | null;
-  captain: {
-    id: string;
-    discordUsername: string;
-  };
   players: Array<{ id: string; name: string; team: string | null }>;
   teams: Array<{ id: string; name: string }>;
   _count: {

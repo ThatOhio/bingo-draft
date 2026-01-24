@@ -130,12 +130,11 @@ router.get('/:eventId/my-submission', authenticate, async (req: AuthRequest, res
   }
 });
 
-// Initialize draft order (snake format)
-router.post('/:eventId/initialize', authenticate, async (req: AuthRequest, res) => {
+// Initialize draft order (snake format) (admin only)
+router.post('/:eventId/initialize', authenticate, requireRole('ADMIN'), async (req: AuthRequest, res) => {
   try {
     const { eventId } = req.params;
 
-    // Check permissions
     const event = await prisma.event.findUnique({
       where: { id: eventId },
       include: {
@@ -145,13 +144,6 @@ router.post('/:eventId/initialize', authenticate, async (req: AuthRequest, res) 
 
     if (!event) {
       return res.status(404).json({ error: 'Event not found' });
-    }
-
-    const isAdmin = req.userRole === 'ADMIN';
-    const isCaptain = event.captainId === req.userId;
-
-    if (!isAdmin && !isCaptain) {
-      return res.status(403).json({ error: 'Insufficient permissions' });
     }
 
     if (event.teams.length === 0) {
@@ -207,7 +199,7 @@ router.post('/:eventId/initialize', authenticate, async (req: AuthRequest, res) 
   }
 });
 
-// Make a pick
+// Make a pick (admin or captain of current team)
 router.post('/:eventId/pick', authenticate, async (req: AuthRequest, res) => {
   try {
     const { eventId } = req.params;
@@ -217,11 +209,14 @@ router.post('/:eventId/pick', authenticate, async (req: AuthRequest, res) => {
       return res.status(400).json({ error: 'Player ID is required' });
     }
 
-    // Check permissions
     const event = await prisma.event.findUnique({
       where: { id: eventId },
       include: {
-        teams: true,
+        teams: {
+          include: {
+            captains: true,
+          },
+        },
         draftOrder: true,
         players: true,
       },
@@ -240,24 +235,24 @@ router.post('/:eventId/pick', authenticate, async (req: AuthRequest, res) => {
     }
 
     const isAdmin = req.userRole === 'ADMIN';
-    const isCaptain = event.captainId === req.userId;
+    const currentTeamId = event.draftOrder.teamOrder[event.draftOrder.currentPick];
+    const currentTeam = event.teams.find((t) => t.id === currentTeamId);
+    const requestingUser = await prisma.user.findUnique({
+      where: { id: req.userId! },
+      select: { discordUsername: true },
+    });
+    const discordUsername = requestingUser?.discordUsername?.toLowerCase() ?? '';
+    const isCaptainOfCurrentTeam = !!currentTeam?.captains?.some(
+      (c) => c.discordUsername.toLowerCase() === discordUsername
+    );
 
-    // Admins can make picks for any team, captains only for their assigned team
-    if (!isAdmin && !isCaptain) {
-      return res.status(403).json({ error: 'Only captains and admins can make picks' });
+    if (!isAdmin && !isCaptainOfCurrentTeam) {
+      return res.status(403).json({ error: 'Only the current team\'s captains and admins can make picks' });
     }
 
-    // Team whose turn it is (from snake order)
-    const currentTeamId = event.draftOrder.teamOrder[event.draftOrder.currentPick];
-
-    // For admins, allow picking for any team; for captains, use current team
     let targetTeamId = currentTeamId;
     if (isAdmin && req.body.teamId) {
-      // Admin can override and pick for a specific team
       targetTeamId = req.body.teamId;
-    } else if (!isAdmin) {
-      // Captains can only pick when it's their team's turn
-      // (For MVP, we allow captain to pick for current team - can be refined)
     }
 
     // Check if player exists and is available
@@ -339,6 +334,7 @@ router.post('/:eventId/pick', authenticate, async (req: AuthRequest, res) => {
         draftOrder: true,
         teams: {
           include: {
+            captains: { include: { player: true } },
             draftPicks: {
               include: {
                 player: true,
@@ -402,6 +398,7 @@ router.get('/:eventId/state', async (req, res) => {
         draftOrder: true,
         teams: {
           include: {
+            captains: { include: { player: true } },
             draftPicks: {
               include: {
                 player: true,
@@ -414,7 +411,7 @@ router.get('/:eventId/state', async (req, res) => {
         },
         draftPicks: {
           include: {
-            team: true,
+            team: { include: { captains: true } },
             player: true,
           },
           orderBy: {
@@ -448,36 +445,42 @@ router.get('/:eventId/state', async (req, res) => {
   }
 });
 
-// Undo last pick (admin/captain only)
+// Undo last pick (admin or captain of the team that made the last pick)
 router.post('/:eventId/undo', authenticate, async (req: AuthRequest, res) => {
   try {
     const { eventId } = req.params;
 
-    // Check permissions (include teams for totalTeams in draft-order rollback)
     const event = await prisma.event.findUnique({
       where: { id: eventId },
-      include: { teams: true },
+      include: { teams: { include: { captains: true } } },
     });
 
     if (!event) {
       return res.status(404).json({ error: 'Event not found' });
     }
 
-    const isAdmin = req.userRole === 'ADMIN';
-    const isCaptain = event.captainId === req.userId;
-
-    if (!isAdmin && !isCaptain) {
-      return res.status(403).json({ error: 'Insufficient permissions' });
-    }
-
-    // Get last pick
     const lastPick = await prisma.draftPick.findFirst({
       where: { eventId },
       orderBy: { pickNumber: 'desc' },
+      include: { team: { include: { captains: true } } },
     });
 
     if (!lastPick) {
       return res.status(400).json({ error: 'No picks to undo' });
+    }
+
+    const isAdmin = req.userRole === 'ADMIN';
+    const requestingUser = await prisma.user.findUnique({
+      where: { id: req.userId! },
+      select: { discordUsername: true },
+    });
+    const discordUsername = requestingUser?.discordUsername?.toLowerCase() ?? '';
+    const isCaptainOfLastPickTeam = !!lastPick.team?.captains?.some(
+      (c) => c.discordUsername.toLowerCase() === discordUsername
+    );
+
+    if (!isAdmin && !isCaptainOfLastPickTeam) {
+      return res.status(403).json({ error: 'Insufficient permissions' });
     }
 
     // Delete last pick
