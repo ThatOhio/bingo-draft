@@ -280,7 +280,7 @@ router.get('/:eventId/aggregate', async (req, res) => {
       .slice(0, 10);
 
     // --- Team order: per team, how many had them in the correct position ---
-    const teamOrderAcc: Map<string, { teamName: string; correctCount: number }> = new Map();
+    const teamOrderAcc: Map<string, { teamName: string; correctCount: number; actualPosition: number }> = new Map();
     for (const t of event.teams || []) {
       const idx = actualTeamOrder.indexOf(t.id);
       if (idx === -1) continue;
