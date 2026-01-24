@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import { useSocket } from '../contexts/SocketContext';
 import { useAuth } from '../contexts/AuthContext';
-import { DarkModeToggle } from '../components/DarkModeToggle';
+import { AppHeader } from '../components/AppHeader';
 
 interface Player {
   id: string;
@@ -50,7 +50,6 @@ const LiveDraft = () => {
   const { eventCode } = useParams<{ eventCode: string }>();
   const { user } = useAuth();
   const { socket, connectToEvent } = useSocket();
-  const navigate = useNavigate();
   const [event, setEvent] = useState<any>(null);
   const [draftState, setDraftState] = useState<DraftState | null>(null);
   const [loading, setLoading] = useState(true);
@@ -230,54 +229,42 @@ const LiveDraft = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <nav className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <button
-                onClick={() => navigate(`/event/${eventCode}`)}
-                className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 mr-4"
-              >
-                ← Back
-              </button>
-              <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Live Draft</h1>
-            </div>
-            <div className="flex items-center gap-2">
-              <DarkModeToggle />
-              {canMakePick && (
-              <div className="flex gap-2">
-                {canPauseResume && (
-                  <>
-                    {event.status === 'DRAFTING' && (
-                      <button
-                        onClick={handlePause}
-                        className="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700"
-                      >
-                        Pause Draft
-                      </button>
-                    )}
-                    {event.status === 'PAUSED' && (
-                      <button
-                        onClick={handleResume}
-                        className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-                      >
-                        Resume Draft
-                      </button>
-                    )}
-                  </>
-                )}
-                <button
-                  onClick={handleUndo}
-                  className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-                >
-                  Undo Last Pick
-                </button>
-              </div>
+      <AppHeader
+        backLink={`/event/${eventCode}`}
+        title="Live Draft"
+        rightSlot={
+          canMakePick ? (
+            <div className="flex gap-2">
+              {canPauseResume && (
+                <>
+                  {event.status === 'DRAFTING' && (
+                    <button
+                      onClick={handlePause}
+                      className="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700"
+                    >
+                      Pause Draft
+                    </button>
+                  )}
+                  {event.status === 'PAUSED' && (
+                    <button
+                      onClick={handleResume}
+                      className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                    >
+                      Resume Draft
+                    </button>
+                  )}
+                </>
               )}
+              <button
+                onClick={handleUndo}
+                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+              >
+                Undo Last Pick
+              </button>
             </div>
-          </div>
-        </div>
-      </nav>
+          ) : undefined
+        }
+      />
 
       <main className={`mx-auto py-6 sm:px-6 lg:px-8 ${numTeams >= 6 ? 'max-w-[min(1600px,96vw)]' : 'max-w-7xl'}`}>
         <div className="px-4 py-6 sm:px-0">
@@ -406,23 +393,25 @@ const LiveDraft = () => {
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="w-full mb-4 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
                   />
-                  <div className="max-h-96 overflow-y-auto space-y-2">
-                    {filteredPlayers.map((player) => (
-                      <div
-                        key={player.id}
-                        className={`p-3 border rounded-md cursor-pointer transition-colors ${
-                          selectedPlayer === player.id
-                            ? 'bg-indigo-100 dark:bg-indigo-900/40 border-indigo-500 dark:border-indigo-400'
-                            : 'bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600'
-                        }`}
-                        onClick={() => canMakePick && setSelectedPlayer(player.id)}
-                      >
-                        <div className="font-medium text-gray-900 dark:text-gray-100">{player.name}</div>
-                        {player.team && (
-                          <div className="text-sm text-gray-500 dark:text-gray-400">{player.team}</div>
-                        )}
-                      </div>
-                    ))}
+                  <div className="max-h-96 overflow-y-auto flex flex-wrap gap-2 content-start">
+                    {filteredPlayers.map((player) => {
+                      const title = player.team ? `${player.name} (${player.team})` : player.name;
+                      return (
+                        <button
+                          key={player.id}
+                          type="button"
+                          title={title}
+                          onClick={() => canMakePick && setSelectedPlayer(player.id)}
+                          className={`inline-flex items-center px-2 py-1 rounded-md border text-sm transition-colors ${
+                            selectedPlayer === player.id
+                              ? 'bg-indigo-100 dark:bg-indigo-900/40 border-indigo-500 dark:border-indigo-400'
+                              : 'bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600'
+                          } ${canMakePick ? 'cursor-pointer' : 'cursor-default opacity-75'}`}
+                        >
+                          <span className="font-medium text-gray-900 dark:text-gray-100 truncate max-w-[11rem]">{player.name}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                   {canMakePick && selectedPlayer && (
                     <div className="mt-4 space-y-3">
@@ -489,23 +478,25 @@ const LiveDraft = () => {
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="w-full mb-4 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
                   />
-                  <div className="max-h-96 overflow-y-auto space-y-2">
-                    {filteredPlayers.map((player) => (
-                      <div
-                        key={player.id}
-                        className={`p-3 border rounded-md cursor-pointer transition-colors ${
-                          selectedPlayer === player.id
-                            ? 'bg-indigo-100 dark:bg-indigo-900/40 border-indigo-500 dark:border-indigo-400'
-                            : 'bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600'
-                        }`}
-                        onClick={() => canMakePick && setSelectedPlayer(player.id)}
-                      >
-                        <div className="font-medium text-gray-900 dark:text-gray-100">{player.name}</div>
-                        {player.team && (
-                          <div className="text-sm text-gray-500 dark:text-gray-400">{player.team}</div>
-                        )}
-                      </div>
-                    ))}
+                  <div className="max-h-96 overflow-y-auto flex flex-wrap gap-2 content-start">
+                    {filteredPlayers.map((player) => {
+                      const title = player.team ? `${player.name} (${player.team})` : player.name;
+                      return (
+                        <button
+                          key={player.id}
+                          type="button"
+                          title={title}
+                          onClick={() => canMakePick && setSelectedPlayer(player.id)}
+                          className={`inline-flex items-center px-2 py-1 rounded-md border text-sm transition-colors ${
+                            selectedPlayer === player.id
+                              ? 'bg-indigo-100 dark:bg-indigo-900/40 border-indigo-500 dark:border-indigo-400'
+                              : 'bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600'
+                          } ${canMakePick ? 'cursor-pointer' : 'cursor-default opacity-75'}`}
+                        >
+                          <span className="font-medium text-gray-900 dark:text-gray-100 truncate max-w-[11rem]">{player.name}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                   {canMakePick && selectedPlayer && (
                     <div className="mt-4 space-y-3">

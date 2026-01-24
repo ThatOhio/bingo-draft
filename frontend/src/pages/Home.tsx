@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
-import { useAuth } from '../contexts/AuthContext';
-import { DarkModeToggle } from '../components/DarkModeToggle';
+import { AppHeader } from '../components/AppHeader';
 
 interface Event {
   id: string;
@@ -22,7 +21,6 @@ interface Event {
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 const Home = () => {
-  const { user } = useAuth();
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -43,44 +41,7 @@ const Home = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <nav className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Bingo Fantasy Draft</h1>
-            </div>
-            <div className="flex items-center space-x-2 sm:space-x-4">
-              <DarkModeToggle />
-              {user ? (
-                <>
-                  <span className="text-gray-700 dark:text-gray-300">Welcome, {user.discordUsername}</span>
-                  {user.role === 'ADMIN' && (
-                    <Link
-                      to="/admin"
-                      className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300"
-                    >
-                      Admin
-                    </Link>
-                  )}
-                  <button
-                    onClick={() => {
-                      localStorage.removeItem('token');
-                      window.location.href = '/login';
-                    }}
-                    className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
-                  >
-                    Logout
-                  </button>
-                </>
-              ) : (
-                <Link to="/login" className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
-                  Login
-                </Link>
-              )}
-            </div>
-          </div>
-        </div>
-      </nav>
+      <AppHeader title="Bingo Fantasy Draft" titleHref="/" />
 
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">

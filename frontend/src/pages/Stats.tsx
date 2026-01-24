@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
-import { DarkModeToggle } from '../components/DarkModeToggle';
+import { AppHeader } from '../components/AppHeader';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 interface CategoryScores {
@@ -123,7 +123,6 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 const Stats = () => {
   const { eventCode } = useParams<{ eventCode: string }>();
   const { user } = useAuth();
-  const navigate = useNavigate();
   const [rankings, setRankings] = useState<Ranking[]>([]);
   const [userStats, setUserStats] = useState<UserStats | null>(null);
   const [aggregate, setAggregate] = useState<AggregateStats | null>(null);
@@ -183,22 +182,7 @@ const Stats = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <nav className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <button
-                onClick={() => navigate(`/event/${eventCode}`)}
-                className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 mr-4"
-              >
-                ← Back
-              </button>
-              <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Stats & Rankings</h1>
-            </div>
-            <DarkModeToggle />
-          </div>
-        </div>
-      </nav>
+      <AppHeader backLink={`/event/${eventCode}`} title="Stats & Rankings" />
 
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">

@@ -11,8 +11,7 @@ import {
 } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { useAuth } from '../contexts/AuthContext';
-import { DarkModeToggle } from '../components/DarkModeToggle';
+import { AppHeader } from '../components/AppHeader';
 
 interface User {
   id: string;
@@ -63,7 +62,6 @@ function SortableTeamRow({
 }
 
 const AdminDashboard = () => {
-  const { user } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
@@ -339,22 +337,7 @@ const AdminDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <nav className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <Link to="/" className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 mr-4">
-                ← Back
-              </Link>
-              <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Admin Dashboard</h1>
-            </div>
-            <div className="flex items-center space-x-2">
-              <DarkModeToggle />
-              <span className="text-gray-700 dark:text-gray-300">{user?.discordUsername}</span>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <AppHeader backLink="/" title="Admin Dashboard" />
 
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">

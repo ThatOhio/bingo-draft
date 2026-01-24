@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import {
   DndContext,
@@ -14,7 +14,7 @@ import {
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useAuth } from '../contexts/AuthContext';
-import { DarkModeToggle } from '../components/DarkModeToggle';
+import { AppHeader } from '../components/AppHeader';
 
 interface Player {
   id: string;
@@ -221,7 +221,7 @@ function DraftCell({
   );
 }
 
-// --- Pool droppable + draggable items ---
+// --- Pool droppable + draggable items (compact chips that wrap) ---
 function PlayerPoolItem({ player, disabled }: { player: Player; disabled?: boolean }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `player-${player.id}`,
@@ -229,17 +229,19 @@ function PlayerPoolItem({ player, disabled }: { player: Player; disabled?: boole
     disabled,
   });
 
+  const title = player.team ? `${player.name} (${player.team})` : player.name;
+
   return (
     <div
       ref={setNodeRef}
       {...attributes}
       {...listeners}
-      className={`flex items-center justify-between px-3 py-2 rounded-md border cursor-grab active:cursor-grabbing transition-colors ${
+      title={title}
+      className={`inline-flex items-center px-2 py-1 rounded-md border text-sm cursor-grab active:cursor-grabbing transition-colors ${
         isDragging ? 'opacity-50' : 'bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 hover:border-indigo-300 dark:hover:border-indigo-500 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/30'
       } ${disabled ? 'cursor-not-allowed opacity-60' : ''}`}
     >
-      <div className="font-medium text-gray-900 dark:text-gray-100 truncate">{player.name}</div>
-      {player.team && <div className="text-xs text-gray-500 dark:text-gray-400 truncate ml-2">{player.team}</div>}
+      <span className="font-medium text-gray-900 dark:text-gray-100 truncate max-w-[11rem]">{player.name}</span>
     </div>
   );
 }
@@ -278,7 +280,6 @@ function SortableTeamRowPrediction({
 const DraftSubmission = () => {
   const { eventCode } = useParams<{ eventCode: string }>();
   useAuth();
-  const navigate = useNavigate();
   const [event, setEvent] = useState<{ id: string; players: Player[]; teams: Team[] } | null>(null);
   const [grid, setGrid] = useState<Record<string, string>>({});
   const [teamOrder, setTeamOrder] = useState<string[]>([]);
@@ -473,22 +474,7 @@ const DraftSubmission = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <nav className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <button
-                onClick={() => navigate(`/event/${eventCode}`)}
-                className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 mr-4"
-              >
-                ← Back
-              </button>
-              <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Mock Draft: Predictions</h1>
-            </div>
-            <DarkModeToggle />
-          </div>
-        </div>
-      </nav>
+      <AppHeader backLink={`/event/${eventCode}`} title="Mock Draft: Predictions" />
 
       <main className={`mx-auto py-6 px-4 sm:px-6 lg:px-8 ${numTeams >= 5 ? 'max-w-[min(1600px,96vw)]' : 'max-w-7xl'}`}>
         {isLocked && (
@@ -596,11 +582,26 @@ const DraftSubmission = () => {
         {/* Step 2: Draft board and player pool. Shown after team order is locked. */}
         {teamOrderLocked && (
           <>
-            <div className="mb-4">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Draft board</h2>
-              <p className="text-gray-600 dark:text-gray-400">
-                Drag players from the list into the slots to predict the draft order. Columns follow your team order above. Each slot is a pick in snake order. Save anytime; partial predictions are fine. Whatever you have saved when the draft starts will count.
-              </p>
+            <div className="mb-4 flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Draft board</h2>
+                <p className="text-gray-600 dark:text-gray-400">
+                  Drag players from the list into the slots to predict the draft order. Columns follow your team order above. Each slot is a pick in snake order. Save anytime; partial predictions are fine. Whatever you have saved when the draft starts will count.
+                </p>
+              </div>
+              {!isLocked && (
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className={`shrink-0 px-6 py-2 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed ${
+                    showSavedState
+                      ? 'bg-green-600 hover:bg-green-700'
+                      : 'bg-indigo-600 hover:bg-indigo-700'
+                  }`}
+                >
+                  {saving ? 'Saving...' : showSavedState ? 'Saved ✓' : 'Save prediction'}
+                </button>
+              )}
             </div>
 
             <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
@@ -679,12 +680,12 @@ const DraftSubmission = () => {
                   />
                 </div>
                 <DroppablePool disabled={isLocked}>
-                  <div className="p-3 flex-1 overflow-y-auto space-y-2 min-h-[12rem]">
+                  <div className="p-3 flex-1 overflow-y-auto min-h-[12rem] flex flex-wrap gap-2 content-start">
                     {filteredPool.map((p) => (
                       <PlayerPoolItem key={p.id} player={p} disabled={isLocked} />
                     ))}
                     {filteredPool.length === 0 && (
-                      <div className="text-sm text-gray-500 dark:text-gray-400 py-4 text-center">
+                      <div className="text-sm text-gray-500 dark:text-gray-400 py-4 w-full text-center">
                         {unplacedPlayers.length === 0
                           ? 'All players are on the board'
                           : 'No players match the search'}
@@ -697,27 +698,12 @@ const DraftSubmission = () => {
           </div>
         </DndContext>
 
-        <div className="mt-6 flex justify-between items-center">
-          <div className="text-sm text-gray-600 dark:text-gray-400">
-            {placedIds.length} of {totalSlots} players placed
-            {submission?.submittedAt && !isLocked && (
-              <span className="ml-3 text-gray-500 dark:text-gray-400">
-                · Last saved: {new Date(submission.submittedAt).toLocaleString()}
-              </span>
-            )}
-          </div>
-          {!isLocked && (
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className={`px-6 py-2 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed ${
-                showSavedState
-                  ? 'bg-green-600 hover:bg-green-700'
-                  : 'bg-indigo-600 hover:bg-indigo-700'
-              }`}
-            >
-              {saving ? 'Saving...' : showSavedState ? 'Saved ✓' : 'Save prediction'}
-            </button>
+        <div className="mt-6 text-sm text-gray-600 dark:text-gray-400">
+          {placedIds.length} of {totalSlots} players placed
+          {submission?.submittedAt && !isLocked && (
+            <span className="ml-3 text-gray-500 dark:text-gray-400">
+              · Last saved: {new Date(submission.submittedAt).toLocaleString()}
+            </span>
           )}
         </div>
           </>
