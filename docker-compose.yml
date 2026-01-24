@@ -1,0 +1,28 @@
+services:
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      PORT: 3001
+      FRONTEND_URL: ${SITE_URL:-http://localhost}
+      DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID}
+      DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET}
+      DISCORD_REDIRECT_URI: ${DISCORD_REDIRECT_URI}
+    # Not exposed to host by default; nginx proxies to this
+    # Expose for debugging: ports: ["3001:3001"]
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${SITE_URL:-http://localhost}
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "${PORT:-80}:80"

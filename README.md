@@ -36,7 +36,19 @@ A full-stack web application for running fantasy draft events with real-time upd
 - PostgreSQL database
 - Git
 
-## Setup Instructions
+## Docker deployment
+
+To run the API and frontend via Docker Compose (using your own PostgreSQL server):
+
+```bash
+cp .env.docker.example .env
+# Edit .env with DATABASE_URL, JWT_SECRET, Discord OAuth, SITE_URL, and DISCORD_REDIRECT_URI
+docker compose up -d --build
+```
+
+See **[DOCKER.md](./DOCKER.md)** for required env vars, Discord app setup, and production notes.
+
+## Setup Instructions (non-Docker)
 
 ### 1. Clone the repository
 
