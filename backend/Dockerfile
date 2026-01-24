@@ -4,6 +4,9 @@ FROM node:20-slim AS builder
 
 WORKDIR /app
 
+# Prisma's native engines need OpenSSL; node:20-slim doesn't include it.
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+
 COPY package*.json ./
 COPY prisma ./prisma/
 
@@ -19,6 +22,9 @@ RUN npm run build
 
 # Production stage (Debian-based for Prisma engine compatibility)
 FROM node:20-slim
+
+# Prisma migrate deploy needs OpenSSL at runtime.
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
