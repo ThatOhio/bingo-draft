@@ -225,6 +225,8 @@ const LiveDraft = () => {
   const canMakePick = user && (user.role === 'ADMIN' || isCaptainOfCurrentTeam);
   const isAdmin = user?.role === 'ADMIN';
   const canPauseResume = isAdmin && event && (event.status === 'DRAFTING' || event.status === 'PAUSED');
+  const numTeams = draftState.teams.length || 1;
+  const useWideLayout = numTeams >= 6;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -277,7 +279,7 @@ const LiveDraft = () => {
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+      <main className={`mx-auto py-6 sm:px-6 lg:px-8 ${numTeams >= 6 ? 'max-w-[min(1600px,96vw)]' : 'max-w-7xl'}`}>
         <div className="px-4 py-6 sm:px-0">
           <div className="mb-6 bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50 rounded-lg p-6">
             <div className="flex justify-between items-center">
@@ -306,75 +308,10 @@ const LiveDraft = () => {
             </div>
           </div>
 
-          <div className="grid lg:grid-cols-3 gap-6">
-            {/* Available Players */}
-            <div className="lg:col-span-1">
-              <div className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50 rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Available Players</h3>
-                <input
-                  type="text"
-                  placeholder="Search players..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full mb-4 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
-                />
-                <div className="max-h-96 overflow-y-auto space-y-2">
-                  {filteredPlayers.map((player) => (
-                    <div
-                      key={player.id}
-                      className={`p-3 border rounded-md cursor-pointer transition-colors ${
-                        selectedPlayer === player.id
-                          ? 'bg-indigo-100 dark:bg-indigo-900/40 border-indigo-500 dark:border-indigo-400'
-                          : 'bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600'
-                      }`}
-                      onClick={() => canMakePick && setSelectedPlayer(player.id)}
-                    >
-                      <div className="font-medium text-gray-900 dark:text-gray-100">{player.name}</div>
-                      {player.team && (
-                        <div className="text-sm text-gray-500 dark:text-gray-400">{player.team}</div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                {canMakePick && selectedPlayer && (
-                  <div className="mt-4 space-y-3">
-                    {isAdmin && draftState.teams.length > 0 && (
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Override Team (Admin Only)
-                        </label>
-                        <select
-                          value={selectedTeamId || ''}
-                          onChange={(e) => setSelectedTeamId(e.target.value || null)}
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                        >
-                          <option value="">Use Current Team</option>
-                          {draftState.teams.map((team) => (
-                            <option key={team.id} value={team.id}>
-                              {team.name}
-                            </option>
-                          ))}
-                        </select>
-                        <p className="text-xs text-gray-500 mt-1">
-                          Leave as "Use Current Team" to follow normal draft order
-                        </p>
-                      </div>
-                    )}
-                    <button
-                      onClick={handleMakePick}
-                      className="w-full px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-                    >
-                      Make Pick
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Teams & Recent Picks */}
-            <div className="lg:col-span-2">
-              {/* Draft Grid: teams as columns, rounds as rows */}
-              <div className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50 rounded-lg p-4 mb-6 overflow-x-auto">
+          {useWideLayout ? (
+            /* Many teams: Draft Board full width on top, then Players | Recent Picks in 2 cols */
+            <div className="space-y-6">
+              <div className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50 rounded-lg p-4 overflow-x-auto">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Draft Board</h3>
                 <table className="w-full border-collapse min-w-[400px]">
                   <thead>
@@ -391,10 +328,14 @@ const LiveDraft = () => {
                           draftState.draftOrder &&
                           draftState.currentTeam?.id === teamId &&
                           (draftState.draftOrder.currentPick ?? 0) < (event?.players?.length ?? 0);
+                        const compact = numTeams >= 5;
                         return team ? (
                           <th
                             key={team.id}
-                            className={`text-left p-2 border-b border-gray-200 dark:border-gray-700 font-semibold min-w-[7rem] ${
+                            title={compact ? team.name : undefined}
+                            className={`text-left p-2 border-b border-gray-200 dark:border-gray-700 font-semibold ${
+                              compact ? 'min-w-0 max-w-[5.5rem] truncate' : 'min-w-[7rem]'
+                            } ${
                               isCurrentTeam
                                 ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200 border-amber-300 dark:border-amber-700'
                                 : 'text-gray-700 dark:text-gray-300'
@@ -415,7 +356,7 @@ const LiveDraft = () => {
                       },
                       (_, i) => i + 1
                     ).map((round) => (
-                      <tr key={round} className="hover:bg-gray-50/50">
+                      <tr key={round} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/30">
                         <td className="p-2 border-b border-gray-100 dark:border-gray-700 font-medium text-gray-600 dark:text-gray-400 sticky left-0 bg-white dark:bg-gray-800 z-10">
                           {round}
                         </td>
@@ -455,26 +396,260 @@ const LiveDraft = () => {
                   </tbody>
                 </table>
               </div>
-
-              <div className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50 rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Recent Picks</h3>
-                <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {draftState.picks.slice(-10).reverse().map((pick) => (
-                    <div key={pick.id} className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-700/50 rounded">
-                      <div>
-                        <span className="font-medium text-gray-900 dark:text-gray-100">#{pick.pickNumber}</span> -{' '}
-                        <span className="font-semibold text-gray-900 dark:text-gray-100">{pick.player.name}</span> →{' '}
-                        <span className="text-indigo-600 dark:text-indigo-400">{pick.team.name}</span>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50 rounded-lg p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Available Players</h3>
+                  <input
+                    type="text"
+                    placeholder="Search players..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full mb-4 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
+                  />
+                  <div className="max-h-96 overflow-y-auto space-y-2">
+                    {filteredPlayers.map((player) => (
+                      <div
+                        key={player.id}
+                        className={`p-3 border rounded-md cursor-pointer transition-colors ${
+                          selectedPlayer === player.id
+                            ? 'bg-indigo-100 dark:bg-indigo-900/40 border-indigo-500 dark:border-indigo-400'
+                            : 'bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600'
+                        }`}
+                        onClick={() => canMakePick && setSelectedPlayer(player.id)}
+                      >
+                        <div className="font-medium text-gray-900 dark:text-gray-100">{player.name}</div>
+                        {player.team && (
+                          <div className="text-sm text-gray-500 dark:text-gray-400">{player.team}</div>
+                        )}
                       </div>
-                      <div className="text-sm text-gray-500 dark:text-gray-400">
-                        Round {pick.round}
-                      </div>
+                    ))}
+                  </div>
+                  {canMakePick && selectedPlayer && (
+                    <div className="mt-4 space-y-3">
+                      {isAdmin && draftState.teams.length > 0 && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Override Team (Admin Only)
+                          </label>
+                          <select
+                            value={selectedTeamId || ''}
+                            onChange={(e) => setSelectedTeamId(e.target.value || null)}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                          >
+                            <option value="">Use Current Team</option>
+                            {draftState.teams.map((team) => (
+                              <option key={team.id} value={team.id}>
+                                {team.name}
+                              </option>
+                            ))}
+                          </select>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Leave as "Use Current Team" to follow normal draft order
+                          </p>
+                        </div>
+                      )}
+                      <button
+                        onClick={handleMakePick}
+                        className="w-full px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+                      >
+                        Make Pick
+                      </button>
                     </div>
-                  ))}
+                  )}
+                </div>
+                <div className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50 rounded-lg p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Recent Picks</h3>
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {draftState.picks.slice(-10).reverse().map((pick) => (
+                      <div key={pick.id} className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-700/50 rounded">
+                        <div>
+                          <span className="font-medium text-gray-900 dark:text-gray-100">#{pick.pickNumber}</span> -{' '}
+                          <span className="font-semibold text-gray-900 dark:text-gray-100">{pick.player.name}</span> →{' '}
+                          <span className="text-indigo-600 dark:text-indigo-400">{pick.team.name}</span>
+                        </div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">
+                          Round {pick.round}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="grid lg:grid-cols-3 gap-6">
+              {/* Available Players */}
+              <div className="lg:col-span-1">
+                <div className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50 rounded-lg p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Available Players</h3>
+                  <input
+                    type="text"
+                    placeholder="Search players..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full mb-4 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
+                  />
+                  <div className="max-h-96 overflow-y-auto space-y-2">
+                    {filteredPlayers.map((player) => (
+                      <div
+                        key={player.id}
+                        className={`p-3 border rounded-md cursor-pointer transition-colors ${
+                          selectedPlayer === player.id
+                            ? 'bg-indigo-100 dark:bg-indigo-900/40 border-indigo-500 dark:border-indigo-400'
+                            : 'bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600'
+                        }`}
+                        onClick={() => canMakePick && setSelectedPlayer(player.id)}
+                      >
+                        <div className="font-medium text-gray-900 dark:text-gray-100">{player.name}</div>
+                        {player.team && (
+                          <div className="text-sm text-gray-500 dark:text-gray-400">{player.team}</div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  {canMakePick && selectedPlayer && (
+                    <div className="mt-4 space-y-3">
+                      {isAdmin && draftState.teams.length > 0 && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Override Team (Admin Only)
+                          </label>
+                          <select
+                            value={selectedTeamId || ''}
+                            onChange={(e) => setSelectedTeamId(e.target.value || null)}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                          >
+                            <option value="">Use Current Team</option>
+                            {draftState.teams.map((team) => (
+                              <option key={team.id} value={team.id}>
+                                {team.name}
+                              </option>
+                            ))}
+                          </select>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Leave as "Use Current Team" to follow normal draft order
+                          </p>
+                        </div>
+                      )}
+                      <button
+                        onClick={handleMakePick}
+                        className="w-full px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+                      >
+                        Make Pick
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Teams & Recent Picks */}
+              <div className="lg:col-span-2">
+                <div className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50 rounded-lg p-4 mb-6 overflow-x-auto">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Draft Board</h3>
+                  <table className="w-full border-collapse min-w-[400px]">
+                    <thead>
+                      <tr>
+                        <th className="text-left p-2 border-b border-gray-200 dark:border-gray-700 font-semibold text-gray-700 dark:text-gray-300 sticky left-0 bg-white dark:bg-gray-800 z-10 min-w-[4rem]">
+                          Round
+                        </th>
+                        {(draftState.draftOrder
+                          ? draftState.draftOrder.teamOrder.slice(0, draftState.teams.length)
+                          : draftState.teams.map((t) => t.id)
+                        ).map((teamId) => {
+                          const team = draftState.teams.find((t) => t.id === teamId);
+                          const isCurrentTeam =
+                            draftState.draftOrder &&
+                            draftState.currentTeam?.id === teamId &&
+                            (draftState.draftOrder.currentPick ?? 0) < (event?.players?.length ?? 0);
+                          const compact = numTeams >= 5;
+                          return team ? (
+                            <th
+                              key={team.id}
+                              title={compact ? team.name : undefined}
+                              className={`text-left p-2 border-b border-gray-200 dark:border-gray-700 font-semibold ${
+                                compact ? 'min-w-0 max-w-[5.5rem] truncate' : 'min-w-[7rem]'
+                              } ${
+                                isCurrentTeam
+                                  ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200 border-amber-300 dark:border-amber-700'
+                                  : 'text-gray-700 dark:text-gray-300'
+                              }`}
+                            >
+                              {team.name}
+                            </th>
+                          ) : null;
+                        })}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Array.from(
+                        {
+                          length: Math.ceil(
+                            (event?.players?.length ?? 0) / (draftState.teams.length || 1)
+                          ) || 1,
+                        },
+                        (_, i) => i + 1
+                      ).map((round) => (
+                        <tr key={round} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/30">
+                          <td className="p-2 border-b border-gray-100 dark:border-gray-700 font-medium text-gray-600 dark:text-gray-400 sticky left-0 bg-white dark:bg-gray-800 z-10">
+                            {round}
+                          </td>
+                          {(draftState.draftOrder
+                            ? draftState.draftOrder.teamOrder.slice(0, draftState.teams.length)
+                            : draftState.teams.map((t) => t.id)
+                          ).map((teamId) => {
+                            const team = draftState.teams.find((t) => t.id === teamId);
+                            if (!team) return null;
+                            const pick = team.draftPicks.find((p) => p.round === round);
+                            const isCurrentCell =
+                              draftState.draftOrder &&
+                              (draftState.draftOrder.currentPick ?? 0) < (event?.players?.length ?? 0) &&
+                              draftState.draftOrder.currentRound === round &&
+                              draftState.draftOrder.teamOrder[draftState.draftOrder.currentPick] === teamId;
+                            return (
+                              <td
+                                key={team.id}
+                                className={`p-2 border-b border-gray-100 dark:border-gray-700 align-top ${
+                                  isCurrentCell
+                                    ? 'bg-amber-200/80 dark:bg-amber-900/50 ring-2 ring-amber-500 dark:ring-amber-600 ring-inset'
+                                    : 'bg-white dark:bg-gray-800'
+                                }`}
+                              >
+                                {pick ? (
+                                  <span className="text-gray-900 dark:text-gray-100">{pick.player.name}</span>
+                                ) : isCurrentCell ? (
+                                  <span className="text-amber-700 dark:text-amber-300 text-sm italic">On the clock</span>
+                                ) : (
+                                  <span className="text-gray-300 dark:text-gray-600">-</span>
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50 rounded-lg p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Recent Picks</h3>
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {draftState.picks.slice(-10).reverse().map((pick) => (
+                      <div key={pick.id} className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-700/50 rounded">
+                        <div>
+                          <span className="font-medium text-gray-900 dark:text-gray-100">#{pick.pickNumber}</span> -{' '}
+                          <span className="font-semibold text-gray-900 dark:text-gray-100">{pick.player.name}</span> →{' '}
+                          <span className="text-indigo-600 dark:text-indigo-400">{pick.team.name}</span>
+                        </div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">
+                          Round {pick.round}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </main>
     </div>

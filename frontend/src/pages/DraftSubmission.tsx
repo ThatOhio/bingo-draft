@@ -202,11 +202,12 @@ function DraftCell({
 
   const playerObj = playerId ? players.find((p) => p.id === playerId) : undefined;
 
+  const compact = numTeams >= 5;
   return (
     <td
       ref={setNodeRef}
-      className={`min-w-[7rem] p-1.5 align-top border-b border-gray-100 ${
-        !valid ? 'bg-gray-50' : isOver ? 'bg-indigo-50 ring-1 ring-indigo-300 ring-inset' : 'bg-white'
+      className={`${compact ? 'min-w-[5rem]' : 'min-w-[7rem]'} p-1.5 align-top border-b border-gray-100 dark:border-gray-700 ${
+        !valid ? 'bg-gray-50 dark:bg-gray-700/50' : isOver ? 'bg-indigo-50 dark:bg-indigo-900/30 ring-1 ring-indigo-300 dark:ring-indigo-600 ring-inset' : 'bg-white dark:bg-gray-800'
       } ${!valid ? '' : 'min-h-[2.25rem]'}`}
     >
       {!valid ? (
@@ -489,7 +490,7 @@ const DraftSubmission = () => {
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+      <main className={`mx-auto py-6 px-4 sm:px-6 lg:px-8 ${numTeams >= 5 ? 'max-w-[min(1600px,96vw)]' : 'max-w-7xl'}`}>
         {isLocked && (
           <div className="mb-4 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 px-4 py-3 rounded">
             This prediction is locked. You can view it but cannot make changes.
@@ -603,7 +604,7 @@ const DraftSubmission = () => {
             </div>
 
             <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-          <div className="flex flex-col lg:flex-row gap-6">
+          <div className={`flex flex-col gap-6 ${numTeams >= 5 ? '' : 'lg:flex-row'}`}>
             {/* Draft board grid */}
             <div className="flex-1 min-w-0">
               <div className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50 rounded-lg overflow-hidden">
@@ -617,15 +618,19 @@ const DraftSubmission = () => {
                   <table className="w-full border-collapse min-w-[400px]">
                     <thead>
                       <tr>
-                        <th className="text-left p-2 border-b border-gray-200 font-semibold text-gray-700 sticky left-0 bg-white z-10 min-w-[4rem]">
+                        <th className="text-left p-2 border-b border-gray-200 dark:border-gray-700 font-semibold text-gray-700 dark:text-gray-300 sticky left-0 bg-white dark:bg-gray-800 z-10 min-w-[4rem]">
                           Round
                         </th>
                         {teamIds.map((teamId) => {
                           const t = event.teams.find((x) => x.id === teamId);
+                          const compact = numTeams >= 5;
                           return (
                             <th
                               key={teamId}
-                              className="text-left p-2 border-b border-gray-200 font-semibold text-gray-700 min-w-[7rem]"
+                              title={compact ? (t?.name ?? '') : undefined}
+                              className={`text-left p-2 border-b border-gray-200 dark:border-gray-700 font-semibold text-gray-700 dark:text-gray-300 ${
+                                compact ? 'min-w-0 max-w-[5.5rem] truncate' : 'min-w-[7rem]'
+                              }`}
                             >
                               {t?.name ?? ''}
                             </th>
@@ -636,7 +641,7 @@ const DraftSubmission = () => {
                     <tbody>
                       {Array.from({ length: maxRound }, (_, i) => i + 1).map((round) => (
                         <tr key={round} className="hover:bg-gray-50/50">
-                          <td className="p-2 border-b border-gray-100 font-medium text-gray-600 sticky left-0 bg-white z-10">
+                          <td className="p-2 border-b border-gray-100 dark:border-gray-700 font-medium text-gray-600 dark:text-gray-400 sticky left-0 bg-white dark:bg-gray-800 z-10">
                             {round}
                           </td>
                           {teamIds.map((teamId, teamIndex) => (
@@ -661,7 +666,7 @@ const DraftSubmission = () => {
             </div>
 
             {/* Player pool */}
-            <div className="w-full lg:w-80 xl:w-96 flex-shrink-0">
+            <div className={`w-full flex-shrink-0 ${numTeams >= 5 ? 'max-w-2xl' : 'lg:w-80 xl:w-96'}`}>
               <div className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50 rounded-lg flex flex-col h-fit max-h-[70vh]">
                 <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex flex-col gap-2">
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Players</h3>
