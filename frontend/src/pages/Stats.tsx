@@ -277,49 +277,49 @@ const Stats = () => {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
                 {/* Players: most / least / surprises */}
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">Players (slot)</h3>
+                  <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 border-b border-gray-200 dark:border-gray-600 pb-2">Players (slot)</h3>
                   <div>
-                    <h4 className="text-sm font-medium text-emerald-700 mb-2">Most accurately predicted</h4>
-                    <ul className="text-sm space-y-1">
+                    <h4 className="text-sm font-medium text-emerald-700 dark:text-emerald-400 mb-2">Most accurately predicted</h4>
+                    <ul className="text-sm space-y-1 text-gray-900 dark:text-gray-100">
                       {aggregate.players.mostAccuratelyPredicted.slice(0, 5).map((p) => (
                         <li key={p.playerId} className="flex justify-between gap-2">
                           <span className="truncate" title={p.teamName ?? undefined}>{p.playerName}{p.teamName ? ` (${p.teamName})` : ''}</span>
-                          <span className="text-emerald-600 shrink-0">{p.exactCount}/{p.totalPredicted}</span>
+                          <span className="text-emerald-600 dark:text-emerald-400 shrink-0">{p.exactCount}/{p.totalPredicted}</span>
                         </li>
                       ))}
                       {aggregate.players.mostAccuratelyPredicted.length === 0 && (
-                        <li className="text-gray-500">-</li>
+                        <li className="text-gray-500 dark:text-gray-400">-</li>
                       )}
                     </ul>
                   </div>
                   <div>
-                    <h4 className="text-sm font-medium text-amber-700 mb-2">Least accurately predicted</h4>
-                    <ul className="text-sm space-y-1">
+                    <h4 className="text-sm font-medium text-amber-700 dark:text-amber-400 mb-2">Least accurately predicted</h4>
+                    <ul className="text-sm space-y-1 text-gray-900 dark:text-gray-100">
                       {aggregate.players.leastAccuratelyPredicted.slice(0, 5).map((p) => (
                         <li key={p.playerId} className="flex justify-between gap-2">
                           <span className="truncate" title={p.teamName ?? undefined}>{p.playerName}{p.teamName ? ` (${p.teamName})` : ''}</span>
-                          <span className="text-amber-600 shrink-0">{p.exactCount}/{p.totalPredicted}</span>
+                          <span className="text-amber-600 dark:text-amber-400 shrink-0">{p.exactCount}/{p.totalPredicted}</span>
                         </li>
                       ))}
                       {aggregate.players.leastAccuratelyPredicted.length === 0 && (
-                        <li className="text-gray-500">-</li>
+                        <li className="text-gray-500 dark:text-gray-400">-</li>
                       )}
                     </ul>
                   </div>
                   <div>
-                    <h4 className="text-sm font-medium text-violet-600 mb-2">Biggest surprises</h4>
-                    <p className="text-xs text-gray-500 mb-1">Went most differently than the crowd expected (avg predicted vs actual)</p>
-                    <ul className="text-sm space-y-1">
+                    <h4 className="text-sm font-medium text-violet-600 dark:text-violet-400 mb-2">Biggest surprises</h4>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Went most differently than the crowd expected (avg predicted vs actual)</p>
+                    <ul className="text-sm space-y-1 text-gray-900 dark:text-gray-100">
                       {aggregate.players.biggestSurprises.slice(0, 5).map((p) => (
                         <li key={p.playerId} className="flex justify-between gap-2">
                           <span className="truncate" title={p.teamName ?? undefined}>{p.playerName}{p.teamName ? ` (${p.teamName})` : ''}</span>
-                          <span className="text-violet-600 shrink-0" title={`Avg predicted ~${p.avgPredicted}, actual #${p.actualPick}`}>
+                          <span className="text-violet-600 dark:text-violet-400 shrink-0" title={`Avg predicted ~${p.avgPredicted}, actual #${p.actualPick}`}>
                             #{p.actualPick} (Δ{p.avgError ?? '?'})
                           </span>
                         </li>
                       ))}
                       {aggregate.players.biggestSurprises.length === 0 && (
-                        <li className="text-gray-500">-</li>
+                        <li className="text-gray-500 dark:text-gray-400">-</li>
                       )}
                     </ul>
                   </div>
@@ -327,32 +327,32 @@ const Stats = () => {
 
                 {/* Team order */}
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">Team draft order</h3>
+                  <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 border-b border-gray-200 dark:border-gray-600 pb-2">Team draft order</h3>
                   <div>
-                    <h4 className="text-sm font-medium text-emerald-700 mb-2">Most accurately predicted</h4>
-                    <ul className="text-sm space-y-1">
+                    <h4 className="text-sm font-medium text-emerald-700 dark:text-emerald-400 mb-2">Most accurately predicted</h4>
+                    <ul className="text-sm space-y-1 text-gray-900 dark:text-gray-100">
                       {aggregate.teamOrder.mostAccuratelyPredicted.slice(0, 5).map((t) => (
                         <li key={t.teamId} className="flex justify-between gap-2">
-                          <span>{t.teamName} <span className="text-gray-400">(#{t.actualPosition})</span></span>
-                          <span className="text-emerald-600 shrink-0">{t.correctCount}/{t.totalSubmissions}</span>
+                          <span>{t.teamName} <span className="text-gray-400 dark:text-gray-500">(#{t.actualPosition})</span></span>
+                          <span className="text-emerald-600 dark:text-emerald-400 shrink-0">{t.correctCount}/{t.totalSubmissions}</span>
                         </li>
                       ))}
                       {aggregate.teamOrder.mostAccuratelyPredicted.length === 0 && (
-                        <li className="text-gray-500">-</li>
+                        <li className="text-gray-500 dark:text-gray-400">-</li>
                       )}
                     </ul>
                   </div>
                   <div>
-                    <h4 className="text-sm font-medium text-amber-700 mb-2">Least accurately predicted</h4>
-                    <ul className="text-sm space-y-1">
+                    <h4 className="text-sm font-medium text-amber-700 dark:text-amber-400 mb-2">Least accurately predicted</h4>
+                    <ul className="text-sm space-y-1 text-gray-900 dark:text-gray-100">
                       {aggregate.teamOrder.leastAccuratelyPredicted.slice(0, 5).map((t) => (
                         <li key={t.teamId} className="flex justify-between gap-2">
-                          <span>{t.teamName} <span className="text-gray-400">(#{t.actualPosition})</span></span>
-                          <span className="text-amber-600 shrink-0">{t.correctCount}/{t.totalSubmissions}</span>
+                          <span>{t.teamName} <span className="text-gray-400 dark:text-gray-500">(#{t.actualPosition})</span></span>
+                          <span className="text-amber-600 dark:text-amber-400 shrink-0">{t.correctCount}/{t.totalSubmissions}</span>
                         </li>
                       ))}
                       {aggregate.teamOrder.leastAccuratelyPredicted.length === 0 && (
-                        <li className="text-gray-500">-</li>
+                        <li className="text-gray-500 dark:text-gray-400">-</li>
                       )}
                     </ul>
                   </div>
@@ -360,32 +360,32 @@ const Stats = () => {
 
                 {/* Correct team (which team drafts which player) */}
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">Correct team (who drafts whom)</h3>
+                  <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 border-b border-gray-200 dark:border-gray-600 pb-2">Correct team (who drafts whom)</h3>
                   <div>
-                    <h4 className="text-sm font-medium text-emerald-700 mb-2">Most accurately predicted</h4>
-                    <ul className="text-sm space-y-1">
+                    <h4 className="text-sm font-medium text-emerald-700 dark:text-emerald-400 mb-2">Most accurately predicted</h4>
+                    <ul className="text-sm space-y-1 text-gray-900 dark:text-gray-100">
                       {aggregate.correctTeam.mostAccuratelyPredicted.slice(0, 5).map((t) => (
                         <li key={t.teamId} className="flex justify-between gap-2">
                           <span>{t.teamName}</span>
-                          <span className="text-emerald-600 shrink-0">{t.correctCount}/{t.totalPossible}</span>
+                          <span className="text-emerald-600 dark:text-emerald-400 shrink-0">{t.correctCount}/{t.totalPossible}</span>
                         </li>
                       ))}
                       {aggregate.correctTeam.mostAccuratelyPredicted.length === 0 && (
-                        <li className="text-gray-500">-</li>
+                        <li className="text-gray-500 dark:text-gray-400">-</li>
                       )}
                     </ul>
                   </div>
                   <div>
-                    <h4 className="text-sm font-medium text-amber-700 mb-2">Least accurately predicted</h4>
-                    <ul className="text-sm space-y-1">
+                    <h4 className="text-sm font-medium text-amber-700 dark:text-amber-400 mb-2">Least accurately predicted</h4>
+                    <ul className="text-sm space-y-1 text-gray-900 dark:text-gray-100">
                       {aggregate.correctTeam.leastAccuratelyPredicted.slice(0, 5).map((t) => (
                         <li key={t.teamId} className="flex justify-between gap-2">
                           <span>{t.teamName}</span>
-                          <span className="text-amber-600 shrink-0">{t.correctCount}/{t.totalPossible}</span>
+                          <span className="text-amber-600 dark:text-amber-400 shrink-0">{t.correctCount}/{t.totalPossible}</span>
                         </li>
                       ))}
                       {aggregate.correctTeam.leastAccuratelyPredicted.length === 0 && (
-                        <li className="text-gray-500">-</li>
+                        <li className="text-gray-500 dark:text-gray-400">-</li>
                       )}
                     </ul>
                   </div>
@@ -422,25 +422,25 @@ const Stats = () => {
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                           Rank
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                           Name
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                           Score
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                           Exact
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                           Near
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" title="Team order correct">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" title="Team order correct">
                           Team ord
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" title="Correct team per player">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" title="Correct team per player">
                           Corr. team
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" title="Correct round per player">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" title="Correct round per player">
                           Corr. round
                         </th>
                       </tr>
@@ -454,28 +454,28 @@ const Stats = () => {
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
                             #{ranking.rank}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                             {ranking.userName}
                             {ranking.userId === user?.id && (
-                              <span className="ml-2 text-xs text-indigo-600">(You)</span>
+                              <span className="ml-2 text-xs text-indigo-600 dark:text-indigo-400">(You)</span>
                             )}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
                             {ranking.score}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                             {ranking.exactMatches}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                             {ranking.closeMatches}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                             {ranking.teamOrderExactMatches ?? '-'}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                             {ranking.correctTeamMatches ?? '-'}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                             {ranking.correctRoundMatches ?? '-'}
                           </td>
                         </tr>
@@ -494,25 +494,25 @@ const Stats = () => {
                 <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                   <thead className="bg-gray-50 dark:bg-gray-700/50">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         Player
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         Pred #
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         Actual #
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         Diff
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         Pred. team
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         Actual team
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" title="Correct team">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" title="Correct team">
                         Team ✓
                       </th>
                     </tr>
@@ -532,21 +532,21 @@ const Stats = () => {
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
                           {match.playerName}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                           #{match.predicted}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                           {match.actual != null ? `#${match.actual}` : 'Not drafted'}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                           {match.difference !== null ? (
                             <span
                               className={
                                 match.difference === 0
-                                  ? 'text-green-600 font-semibold'
+                                  ? 'text-green-600 dark:text-green-400 font-semibold'
                                   : match.difference <= 3
-                                  ? 'text-yellow-600'
-                                  : 'text-red-600'
+                                  ? 'text-yellow-600 dark:text-yellow-400'
+                                  : 'text-red-600 dark:text-red-400'
                               }
                             >
                               {match.difference === 0 ? 'Perfect!' : `±${match.difference}`}
@@ -555,16 +555,16 @@ const Stats = () => {
                             '-'
                           )}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                           {match.predictedTeam ?? '-'}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                           {match.team ?? match.actualTeam ?? '-'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm">
-                          {match.correctTeam === true && <span className="text-green-600" aria-label="Correct team">✓</span>}
-                          {match.correctTeam === false && <span className="text-gray-400">-</span>}
-                          {match.correctTeam == null && <span className="text-gray-400">-</span>}
+                          {match.correctTeam === true && <span className="text-green-600 dark:text-green-400" aria-label="Correct team">✓</span>}
+                          {match.correctTeam === false && <span className="text-gray-400 dark:text-gray-500">-</span>}
+                          {match.correctTeam == null && <span className="text-gray-400 dark:text-gray-500">-</span>}
                         </td>
                       </tr>
                     ))}

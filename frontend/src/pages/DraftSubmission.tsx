@@ -164,7 +164,7 @@ function DraggableCellChip({
       ref={setNodeRef}
       {...attributes}
       {...listeners}
-      className={`text-sm font-medium text-gray-900 truncate px-2 py-1 rounded bg-indigo-100 border border-indigo-200 cursor-grab active:cursor-grabbing ${
+      className={`text-sm font-medium text-gray-900 dark:text-gray-100 truncate px-2 py-1 rounded bg-indigo-100 dark:bg-indigo-900/50 border border-indigo-200 dark:border-indigo-700 cursor-grab active:cursor-grabbing ${
         isDragging ? 'opacity-50' : ''
       } ${disabled ? 'cursor-not-allowed opacity-60' : ''}`}
     >
@@ -211,11 +211,11 @@ function DraftCell({
       } ${!valid ? '' : 'min-h-[2.25rem]'}`}
     >
       {!valid ? (
-        <span className="text-gray-300 text-xs">-</span>
+        <span className="text-gray-300 dark:text-gray-500 text-xs">-</span>
       ) : playerObj ? (
         <DraggableCellChip player={playerObj} round={round} teamId={teamId} disabled={disabled} />
       ) : (
-        <div className="text-gray-400 text-sm italic min-h-[1.5rem]">&nbsp;</div>
+        <div className="text-gray-400 dark:text-gray-500 text-sm italic min-h-[1.5rem]">&nbsp;</div>
       )}
     </td>
   );
@@ -235,11 +235,11 @@ function PlayerPoolItem({ player, disabled }: { player: Player; disabled?: boole
       {...attributes}
       {...listeners}
       className={`flex items-center justify-between px-3 py-2 rounded-md border cursor-grab active:cursor-grabbing transition-colors ${
-        isDragging ? 'opacity-50' : 'bg-white border-gray-200 hover:border-indigo-300 hover:bg-indigo-50/50'
+        isDragging ? 'opacity-50' : 'bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 hover:border-indigo-300 dark:hover:border-indigo-500 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/30'
       } ${disabled ? 'cursor-not-allowed opacity-60' : ''}`}
     >
-      <div className="font-medium text-gray-900 truncate">{player.name}</div>
-      {player.team && <div className="text-xs text-gray-500 truncate ml-2">{player.team}</div>}
+      <div className="font-medium text-gray-900 dark:text-gray-100 truncate">{player.name}</div>
+      {player.team && <div className="text-xs text-gray-500 dark:text-gray-400 truncate ml-2">{player.team}</div>}
     </div>
   );
 }
@@ -265,12 +265,12 @@ function SortableTeamRowPrediction({
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={`flex items-center gap-2 py-1.5 px-3 rounded border border-gray-200 bg-gray-50 ${isDragging ? 'opacity-70 shadow-lg z-10' : ''} ${disabled ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'}`}
+      className={`flex items-center gap-2 py-1.5 px-3 rounded border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 ${isDragging ? 'opacity-70 shadow-lg z-10' : ''} ${disabled ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'}`}
       {...(disabled ? {} : { ...attributes, ...listeners })}
     >
-      {!disabled && <span className="text-gray-400 select-none" aria-hidden>⋮⋮</span>}
-      <span className="text-sm font-medium text-gray-500">#{index}</span>
-      <span className="font-medium text-gray-900">{team.name}</span>
+      {!disabled && <span className="text-gray-400 dark:text-gray-500 select-none" aria-hidden>⋮⋮</span>}
+      <span className="text-sm font-medium text-gray-500 dark:text-gray-400">#{index}</span>
+      <span className="font-medium text-gray-900 dark:text-gray-100">{team.name}</span>
     </div>
   );
 }
@@ -508,7 +508,7 @@ const DraftSubmission = () => {
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Predict team draft order</h3>
           {!teamOrderLocked ? (
             <>
-              <p className="text-sm text-gray-600 mb-3">
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
                 Drag teams to set which you think picks 1st, 2nd, 3rd, etc. in round 1. Lock this order to open the draft board and predict player picks.
               </p>
               <DndContext
@@ -559,14 +559,14 @@ const DraftSubmission = () => {
             </>
           ) : (
             <>
-              <p className="text-sm text-gray-600 mb-2">Your order (board columns follow this):</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Your order (board columns follow this):</p>
               <div className="flex flex-wrap items-center gap-2 mb-2">
                 {teamIds.map((id, i) => {
                   const t = event.teams.find((x) => x.id === id);
                   return t ? (
-                    <span key={id} className="text-sm">
-                      <span className="text-gray-500">{i + 1}.</span> {t.name}
-                      {i < teamIds.length - 1 && <span className="text-gray-400 mx-1">→</span>}
+                    <span key={id} className="text-sm text-gray-900 dark:text-gray-100">
+                      <span className="text-gray-500 dark:text-gray-400">{i + 1}.</span> {t.name}
+                      {i < teamIds.length - 1 && <span className="text-gray-400 dark:text-gray-500 mx-1">→</span>}
                     </span>
                   ) : null;
                 })}
@@ -580,11 +580,11 @@ const DraftSubmission = () => {
                       setTeamOrderLocked(false);
                       setGrid({});
                     }}
-                    className="text-sm text-indigo-600 hover:text-indigo-800"
+                    className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300"
                   >
                     Edit team order
                   </button>
-                  <span className="text-xs text-gray-500 ml-2">
+                  <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
                     Your player predictions will move with each team to their new column.
                   </span>
                 </>
@@ -640,7 +640,7 @@ const DraftSubmission = () => {
                     </thead>
                     <tbody>
                       {Array.from({ length: maxRound }, (_, i) => i + 1).map((round) => (
-                        <tr key={round} className="hover:bg-gray-50/50">
+                        <tr key={round} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/30">
                           <td className="p-2 border-b border-gray-100 dark:border-gray-700 font-medium text-gray-600 dark:text-gray-400 sticky left-0 bg-white dark:bg-gray-800 z-10">
                             {round}
                           </td>
@@ -684,7 +684,7 @@ const DraftSubmission = () => {
                       <PlayerPoolItem key={p.id} player={p} disabled={isLocked} />
                     ))}
                     {filteredPool.length === 0 && (
-                      <div className="text-sm text-gray-500 py-4 text-center">
+                      <div className="text-sm text-gray-500 dark:text-gray-400 py-4 text-center">
                         {unplacedPlayers.length === 0
                           ? 'All players are on the board'
                           : 'No players match the search'}
@@ -701,7 +701,7 @@ const DraftSubmission = () => {
           <div className="text-sm text-gray-600 dark:text-gray-400">
             {placedIds.length} of {totalSlots} players placed
             {submission?.submittedAt && !isLocked && (
-              <span className="ml-3 text-gray-500">
+              <span className="ml-3 text-gray-500 dark:text-gray-400">
                 · Last saved: {new Date(submission.submittedAt).toLocaleString()}
               </span>
             )}
@@ -743,7 +743,7 @@ function DroppablePool({
   return (
     <div
       ref={setNodeRef}
-      className={`flex-1 flex flex-col min-h-0 ${isOver ? 'bg-indigo-50' : ''}`}
+      className={`flex-1 flex flex-col min-h-0 ${isOver ? 'bg-indigo-50 dark:bg-indigo-900/30' : ''}`}
     >
       {children}
     </div>

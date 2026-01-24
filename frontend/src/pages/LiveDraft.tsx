@@ -443,7 +443,7 @@ const LiveDraft = () => {
                               </option>
                             ))}
                           </select>
-                          <p className="text-xs text-gray-500 mt-1">
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                             Leave as "Use Current Team" to follow normal draft order
                           </p>
                         </div>
@@ -526,7 +526,7 @@ const LiveDraft = () => {
                               </option>
                             ))}
                           </select>
-                          <p className="text-xs text-gray-500 mt-1">
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                             Leave as "Use Current Team" to follow normal draft order
                           </p>
                         </div>
