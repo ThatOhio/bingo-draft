@@ -549,7 +549,7 @@ const AdminDashboard = () => {
                         </div>
                       )}
 
-                      {/* Team draft order (1st, 2nd, … to draft) — editable until Initialize; drag to reorder */}
+                      {/* Team draft order (1st, 2nd, ... to draft). Editable until Initialize; drag to reorder. */}
                       {eventDetails && eventDetails.teams?.length > 0 && !eventDetails.draftOrder && (
                         <div className="bg-white border border-gray-200 p-4 rounded-lg">
                           <h3 className="text-lg font-semibold text-gray-900 mb-2">Team draft order</h3>
@@ -611,7 +611,7 @@ const AdminDashboard = () => {
                                 <div className="space-y-2">
                                   {team.captains?.map((cap: any) => (
                                     <div key={cap.id} className="flex items-center justify-between gap-2 py-1 text-sm">
-                                      <span>{cap.player?.name} — @{cap.discordUsername}</span>
+                                      <span>{cap.player?.name} @{cap.discordUsername}</span>
                                       <button
                                         type="button"
                                         onClick={() => handleRemoveCaptain(team.id, cap.id)}
@@ -635,7 +635,7 @@ const AdminDashboard = () => {
                                       }
                                       className="px-2 py-1.5 border border-gray-300 rounded text-sm"
                                     >
-                                      <option value="">— Select —</option>
+                                      <option value="">Select</option>
                                       {(eventDetails.players || []).map((p: any) => (
                                         <option key={p.id} value={p.id}>{p.name}</option>
                                       ))}
@@ -703,7 +703,7 @@ const AdminDashboard = () => {
                                   }
                                   className="px-2 py-1.5 border border-gray-300 rounded text-sm flex-1 max-w-[12rem]"
                                 >
-                                  <option value="">— Player —</option>
+                                  <option value="">Player</option>
                                   {(eventDetails?.players || []).map((p: any) => (
                                     <option key={p.id} value={p.id}>{p.name}</option>
                                   ))}

@@ -42,16 +42,16 @@ This will create all the necessary database tables.
 
 ### 4. Seed Test Users (optional, for local development)
 
-To populate the DB with test users so you can exercise the Admin Dashboard and run mock events without multiple real Discord accounts:
+To add test users for the Admin Dashboard and mock drafts (without multiple Discord accounts):
 
 ```bash
 cd backend
 npm run db:seed
 ```
 
-This creates 1 admin and 10 users with fake `SEED_*` discordIds. They **cannot log in** via Discord; they only exist in the DB so you can:
-- See and assign roles in Admin → Users (User vs Admin)
-- Run a mock draft: log in as your real admin account, create an event, add players/teams and assign team captains (Discord username), then Initialize Draft
+Creates 1 admin and 10 users with fake `SEED_*` discordIds. They cannot log in via Discord. Use them to:
+- Assign roles in Admin → Users
+- Run a mock draft: log in as your real admin, create an event, add players/teams, assign captains (Discord username), then Initialize Draft
 
 To also create a **mock event** (MOCK2024) with players and teams:
 
@@ -59,9 +59,9 @@ To also create a **mock event** (MOCK2024) with players and teams:
 npm run db:seed:event
 ```
 
-Then in Admin → Manage Event, select "Mock Draft Event", set status to OPEN, add teams if needed, and use "Initialize Draft".
+In Admin → Manage Event, select the mock event, set OPEN, add teams if needed, then Initialize Draft.
 
-To reset and re-seed a fresh mock event (clears all events, then seeds users + event):
+To reset and get a fresh mock event (clears all events, then seeds users + event):
 
 ```bash
 npm run db:clear-events
@@ -154,11 +154,6 @@ npm run dev
 - Run `npm run db:generate` in the backend directory
 - Check your DATABASE_URL is correct
 
-## Next Steps
+## Next
 
-1. Create events and import your player pools
-2. Invite users to sign in with Discord and submit draft orders
-3. Run the live draft when ready
-4. View stats and rankings after completion
-
-For more details, see the main [README.md](./README.md).
+Create events, import players, invite users to sign in with Discord and submit predictions, run the live draft, then check stats. See [README.md](./README.md) for more.

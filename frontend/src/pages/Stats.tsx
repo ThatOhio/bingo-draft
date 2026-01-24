@@ -214,7 +214,7 @@ const Stats = () => {
                   <div className="text-2xl font-bold text-emerald-600">
                     {userStats.stats.closeMatches}
                   </div>
-                  <div className="text-xs text-gray-600">Near (±1–3)</div>
+                  <div className="text-xs text-gray-600">Near (±1-3)</div>
                 </div>
                 <div className="text-center p-3 rounded-lg bg-amber-50">
                   <div className="text-2xl font-bold text-amber-700">
@@ -286,7 +286,7 @@ const Stats = () => {
                         </li>
                       ))}
                       {aggregate.players.mostAccuratelyPredicted.length === 0 && (
-                        <li className="text-gray-500">—</li>
+                        <li className="text-gray-500">-</li>
                       )}
                     </ul>
                   </div>
@@ -300,7 +300,7 @@ const Stats = () => {
                         </li>
                       ))}
                       {aggregate.players.leastAccuratelyPredicted.length === 0 && (
-                        <li className="text-gray-500">—</li>
+                        <li className="text-gray-500">-</li>
                       )}
                     </ul>
                   </div>
@@ -317,7 +317,7 @@ const Stats = () => {
                         </li>
                       ))}
                       {aggregate.players.biggestSurprises.length === 0 && (
-                        <li className="text-gray-500">—</li>
+                        <li className="text-gray-500">-</li>
                       )}
                     </ul>
                   </div>
@@ -336,7 +336,7 @@ const Stats = () => {
                         </li>
                       ))}
                       {aggregate.teamOrder.mostAccuratelyPredicted.length === 0 && (
-                        <li className="text-gray-500">—</li>
+                        <li className="text-gray-500">-</li>
                       )}
                     </ul>
                   </div>
@@ -350,7 +350,7 @@ const Stats = () => {
                         </li>
                       ))}
                       {aggregate.teamOrder.leastAccuratelyPredicted.length === 0 && (
-                        <li className="text-gray-500">—</li>
+                        <li className="text-gray-500">-</li>
                       )}
                     </ul>
                   </div>
@@ -369,7 +369,7 @@ const Stats = () => {
                         </li>
                       ))}
                       {aggregate.correctTeam.mostAccuratelyPredicted.length === 0 && (
-                        <li className="text-gray-500">—</li>
+                        <li className="text-gray-500">-</li>
                       )}
                     </ul>
                   </div>
@@ -383,7 +383,7 @@ const Stats = () => {
                         </li>
                       ))}
                       {aggregate.correctTeam.leastAccuratelyPredicted.length === 0 && (
-                        <li className="text-gray-500">—</li>
+                        <li className="text-gray-500">-</li>
                       )}
                     </ul>
                   </div>
@@ -468,13 +468,13 @@ const Stats = () => {
                             {ranking.closeMatches}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {ranking.teamOrderExactMatches ?? '—'}
+                            {ranking.teamOrderExactMatches ?? '-'}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {ranking.correctTeamMatches ?? '—'}
+                            {ranking.correctTeamMatches ?? '-'}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {ranking.correctRoundMatches ?? '—'}
+                            {ranking.correctRoundMatches ?? '-'}
                           </td>
                         </tr>
                       ))}
@@ -561,8 +561,8 @@ const Stats = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm">
                           {match.correctTeam === true && <span className="text-green-600" aria-label="Correct team">✓</span>}
-                          {match.correctTeam === false && <span className="text-gray-400">—</span>}
-                          {match.correctTeam == null && <span className="text-gray-400">—</span>}
+                          {match.correctTeam === false && <span className="text-gray-400">-</span>}
+                          {match.correctTeam == null && <span className="text-gray-400">-</span>}
                         </td>
                       </tr>
                     ))}

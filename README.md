@@ -1,6 +1,6 @@
 # Bingo Fantasy Draft Website
 
-A full-stack web application for running fantasy draft events with real-time updates, prediction submissions, and comprehensive statistics.
+A full-stack web app for fantasy draft events: real-time updates, prediction submissions, and stats/rankings.
 
 ## Features
 
@@ -171,32 +171,27 @@ npx serve -s dist
 
 ### Creating an Event
 
-1. Log in as an Admin or Captain
-2. Create a new event via the API or admin dashboard
-3. Import players (CSV/JSON format via API)
-4. Create teams for the event
-5. Set draft deadline and start time
+1. Log in as Admin.
+2. Create an event in the admin dashboard or via the API.
+3. Import players (JSON or pasteable text) via the API or admin dashboard.
+4. Create teams and optionally assign captains.
+5. Set draft deadline and start time if needed.
 
 ### Submitting Draft Predictions
 
-1. Open an event from the home page or via `/event/:eventCode`
-2. Sign in with Discord, then navigate to "Submit Draft Order"
-3. Drag and drop players to arrange your predicted draft order
-4. Submit before the deadline
+1. Open an event (home or `/event/:eventCode`), sign in with Discord.
+2. Go to Submit Draft Order, drag players into slots for your predicted draft.
+3. Save before the deadline; partial saves are fine.
 
 ### Running the Live Draft
 
-1. As a Captain, initialize the draft (this sets up the snake order)
-2. Navigate to the Live Draft page
-3. Make picks in real-time
-4. All participants see updates instantly via WebSocket
+1. As Admin, initialize the draft in Manage Event (sets the snake order).
+2. Open the Live Draft page.
+3. Make picks in real time; everyone sees updates via WebSocket.
 
 ### Viewing Stats
 
-After the draft completes:
-1. Navigate to the Stats page
-2. View leaderboard rankings
-3. See detailed comparison of your predictions vs. actual results
+After the draft completes, open the Stats page for leaderboard rankings and prediction vs. actuals.
 
 ## API Endpoints
 
@@ -208,18 +203,20 @@ After the draft completes:
 ### Events
 - `GET /api/events` - List all events
 - `GET /api/events/code/:eventCode` - Get event by code
-- `POST /api/events` - Create event (auth required)
-- `PUT /api/events/:id` - Update event
-- `POST /api/events/:id/players/import` - Import players
-- `POST /api/events/:id/teams` - Add team
+- `POST /api/events` - Create event (admin)
+- `PUT /api/events/:id` - Update event (admin)
+- `POST /api/events/:id/players/import` - Import players from JSON array (admin)
+- `POST /api/events/:id/players/bulk-import` - Import players from pasteable text, one per line (admin)
+- `PUT /api/events/:id/team-draft-order` - Set which team picks 1st, 2nd, etc. (admin; before initialize)
+- `POST /api/events/:id/teams` - Add team (admin)
 
 ### Draft
 - `POST /api/draft/:eventId/submit-order` - Submit draft order prediction
 - `GET /api/draft/:eventId/my-submission` - Get user's submission
-- `POST /api/draft/:eventId/initialize` - Initialize draft (captain/admin)
-- `POST /api/draft/:eventId/pick` - Make a pick (captain/admin)
+- `POST /api/draft/:eventId/initialize` - Initialize draft (admin)
+- `POST /api/draft/:eventId/pick` - Make a pick (admin or captain of the current team)
 - `GET /api/draft/:eventId/state` - Get current draft state
-- `POST /api/draft/:eventId/undo` - Undo last pick (captain/admin)
+- `POST /api/draft/:eventId/undo` - Undo last pick (admin or captain of the team that picked)
 
 ### Stats
 - `GET /api/stats/:eventId/rankings` - Get all rankings
@@ -265,26 +262,17 @@ bingo-draft/
 
 ## Development Notes
 
-- The backend uses Prisma for database access. After schema changes, run `npm run db:generate` and `npm run db:migrate`
-- Socket.io is used for real-time updates. The frontend automatically connects when authenticated
-- JWT tokens are stored in localStorage on the frontend
-- The draft uses a snake format: teams pick in order 1→N, then reverse N→1, repeating
+- Backend: Prisma. After schema changes: `npm run db:generate` and `npm run db:migrate`.
+- Socket.io for real-time updates; frontend connects when authenticated. JWTs in localStorage.
+- Draft: snake order. Teams pick 1→N, then N→1, repeat.
 
 ## Troubleshooting
 
-### Database Connection Issues
-- Verify PostgreSQL is running
-- Check DATABASE_URL in backend/.env
-- Ensure database exists
+**Database:** PostgreSQL running? DATABASE_URL in backend/.env correct? DB exists?
 
-### Socket.io Connection Issues
-- Check CORS settings in backend/src/index.ts
-- Verify FRONTEND_URL matches your frontend URL
-- Check browser console for connection errors
+**Socket.io:** CORS in backend/src/index.ts; FRONTEND_URL matches frontend; check browser console.
 
-### Build Issues
-- Delete node_modules and reinstall: `rm -rf node_modules */node_modules && npm run install:all`
-- Clear TypeScript build cache: `rm -rf backend/dist frontend/dist`
+**Build:** `rm -rf node_modules */node_modules && npm run install:all`; or clear `backend/dist` and `frontend/dist`.
 
 ## License
 

@@ -203,7 +203,7 @@ const teamDraftOrderSchema = z.object({
   teamOrder: z.array(z.string()),
 });
 
-// Set team draft order (admin only) — which team picks 1st, 2nd, etc. Editable until draft is initialized.
+// Set team draft order (admin only): which team picks 1st, 2nd, etc. Editable until initialize.
 router.put('/:id/team-draft-order', authenticate, requireRole('ADMIN'), async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
@@ -344,7 +344,7 @@ const addCaptainSchema = z.object({
   discordUsername: z.string().min(1),
 });
 
-// Add captain to team (admin only) – must be before POST /:id/teams
+// Add captain to team (admin only)
 router.post('/:id/teams/:teamId/captains', authenticate, requireRole('ADMIN'), async (req: AuthRequest, res) => {
   try {
     const { id: eventId, teamId } = req.params;
@@ -415,7 +415,7 @@ const createTeamSchema = z.object({
   })).optional().default([]),
 });
 
-// Add team (admin only) – name required; captains optional (can add later)
+// Add team (admin only). Name required; captains optional.
 router.post('/:id/teams', authenticate, requireRole('ADMIN'), async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;

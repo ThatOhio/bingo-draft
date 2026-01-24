@@ -44,7 +44,7 @@ model Event {
   status          EventStatus @default(PLANNED)
   draftDeadline   DateTime?
   draftStartTime  DateTime?
-  teamDraftOrder  String[]    @default([])  // Admin-set order of team IDs (1st to draft, 2nd, etc.) — editable until draft is initialized; empty = use teams-by-name when initializing
+  teamDraftOrder  String[]    @default([])  // Team IDs in pick order (1st, 2nd, ...). Editable until initialize; empty = use teams by name.
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 

@@ -441,7 +441,7 @@ const LiveDraft = () => {
                               ) : isCurrentCell ? (
                                 <span className="text-amber-700 text-sm italic">On the clock</span>
                               ) : (
-                                <span className="text-gray-300">—</span>
+                                <span className="text-gray-300">-</span>
                               )}
                             </td>
                           );

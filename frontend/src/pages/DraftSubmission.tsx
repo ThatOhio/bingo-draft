@@ -209,7 +209,7 @@ function DraftCell({
       } ${!valid ? '' : 'min-h-[2.25rem]'}`}
     >
       {!valid ? (
-        <span className="text-gray-300 text-xs">—</span>
+        <span className="text-gray-300 text-xs">-</span>
       ) : playerObj ? (
         <DraggableCellChip player={playerObj} round={round} teamId={teamId} disabled={disabled} />
       ) : (
@@ -481,7 +481,7 @@ const DraftSubmission = () => {
               >
                 ← Back
               </button>
-              <h1 className="text-xl font-bold text-gray-900">Mock Draft – Predictions</h1>
+              <h1 className="text-xl font-bold text-gray-900">Mock Draft: Predictions</h1>
             </div>
           </div>
         </div>
@@ -500,7 +500,7 @@ const DraftSubmission = () => {
           </div>
         )}
 
-        {/* Step 1: Predict team draft order — required before the board is shown */}
+        {/* Step 1: Predict team draft order. Required before the board is shown. */}
         <div className="mb-6 bg-white shadow rounded-lg p-4">
           <h3 className="text-lg font-semibold text-gray-900 mb-2">Predict team draft order</h3>
           {!teamOrderLocked ? (
@@ -590,13 +590,13 @@ const DraftSubmission = () => {
           )}
         </div>
 
-        {/* Step 2: Draft board and player pool — only after team order is locked */}
+        {/* Step 2: Draft board and player pool. Shown after team order is locked. */}
         {teamOrderLocked && (
           <>
             <div className="mb-4">
               <h2 className="text-2xl font-bold text-gray-900 mb-2">Draft board</h2>
               <p className="text-gray-600">
-                Drag players from the list into the slots to predict the draft order. Columns follow your team order above. Each slot is a pick in snake order. You can save at any time—partial predictions are fine, and whatever you have saved when the draft starts will count.
+                Drag players from the list into the slots to predict the draft order. Columns follow your team order above. Each slot is a pick in snake order. Save anytime; partial predictions are fine. Whatever you have saved when the draft starts will count.
               </p>
             </div>
 

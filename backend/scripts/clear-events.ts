@@ -1,14 +1,9 @@
 /**
- * Clear all events from the database. Related data (players, teams, draft picks,
- * draft order, submissions) is removed by cascade.
+ * Clear all events. Related data (players, teams, picks, order, submissions) is
+ * removed by cascade. DraftOrderSubmissionItem is deleted first (references
+ * Player without onDelete; Event's cascade would hit FK violation otherwise).
  *
- * DraftOrderSubmissionItem is deleted first because it references Player without
- * onDelete; otherwise Event's cascade to Player hits a foreign key violation.
- *
- * Use before re-running the seed to get a fresh mock event:
- *   npm run db:clear-events
- *   npm run db:seed:event
- *
+ * Fresh mock: npm run db:clear-events && npm run db:seed:event
  * Run from backend: npx tsx scripts/clear-events.ts
  */
 

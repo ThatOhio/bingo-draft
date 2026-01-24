@@ -1,19 +1,13 @@
 /**
- * Seed script: populate the user DB with test users for local development.
+ * Seed test users for local dev. Creates 1 ADMIN and 10 USERs (fake SEED_* discordIds;
+ * they cannot log in via Discord). Use for assigning captains in Manage Event.
  *
- * Creates:
- *   - 1 ADMIN (seed)
- *   - 10 USERs (seed) — e.g. for assigning as team captains in Manage Event
+ * npm run db:seed        - users only
+ * npm run db:seed:event  - users + mock event (MOCK2024)
+ * Fresh mock: npm run db:clear-events then npm run db:seed:event
  *
- * Use --with-event to also create a mock event with players and teams.
- * Run from backend: npm run db:seed or npm run db:seed:event
- *
- * To get a fresh mock event: npm run db:clear-events then npm run db:seed:event
- *
- * Note: Seed users use fake discordIds (SEED_*) and cannot log in via Discord OAuth.
- * To run a mock draft: log in as your real admin account, create or use the
- * seeded event, add players/teams and assign captains (Discord username), then
- * initialize and run the draft.
+ * To run a mock draft: log in as real admin, create/use an event, add players/teams,
+ * assign captains (Discord username), then Initialize Draft.
  */
 
 import 'dotenv/config';
