@@ -1,17 +1,32 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+
+interface CategoryScores {
+  playerSlot: number;
+  teamOrder: number;
+  correctTeam: number;
+  correctRound: number;
+}
 
 interface Ranking {
   userId: string;
   userName: string;
   exactMatches: number;
   closeMatches: number;
+  teamOrderExactMatches?: number;
+  teamOrderScore?: number;
+  correctTeamMatches?: number;
+  correctRoundMatches?: number;
+  correctTeamScore?: number;
+  correctRoundScore?: number;
+  playerSlotScore?: number;
   score: number;
   totalPlayers: number;
   rank: number;
+  categoryScores?: CategoryScores;
   matchDetails: Array<{
     playerName: string;
     predicted: number;
@@ -28,16 +43,78 @@ interface UserStats {
   stats: {
     exactMatches: number;
     closeMatches: number;
+    teamOrderExactMatches?: number;
+    teamOrderScore?: number;
+    correctTeamMatches?: number;
+    correctRoundMatches?: number;
+    correctTeamScore?: number;
+    correctRoundScore?: number;
+    playerSlotScore?: number;
     score: number;
     totalPlayers: number;
+    categoryScores?: CategoryScores;
     matchDetails: Array<{
       playerName: string;
       predicted: number;
       actual: number | null;
       difference: number | null;
       team: string | null;
+      predictedTeam?: string | null;
+      actualTeam?: string | null;
+      predictedRound?: number | null;
+      actualRound?: number | null;
+      correctTeam?: boolean | null;
     }>;
   };
+}
+
+// Aggregate draft stats (player/team accuracy across users)
+interface PlayerAggregate {
+  playerId: string;
+  playerName: string;
+  teamName: string | null;
+  actualPick: number;
+  exactCount: number;
+  totalPredicted: number;
+  pctExact: number;
+  avgPredicted?: number | null;
+  avgError?: number | null;
+}
+
+interface TeamOrderAggregate {
+  teamId: string;
+  teamName: string;
+  actualPosition: number;
+  correctCount: number;
+  totalSubmissions: number;
+  pct: number;
+}
+
+interface CorrectTeamAggregate {
+  teamId: string;
+  teamName: string;
+  correctCount: number;
+  totalPossible: number;
+  pct: number;
+}
+
+interface AggregateStats {
+  totalSubmissions: number;
+  totalWithTeamOrder: number;
+  players: {
+    mostAccuratelyPredicted: PlayerAggregate[];
+    leastAccuratelyPredicted: PlayerAggregate[];
+    biggestSurprises: PlayerAggregate[];
+  };
+  teamOrder: {
+    mostAccuratelyPredicted: TeamOrderAggregate[];
+    leastAccuratelyPredicted: TeamOrderAggregate[];
+  };
+  correctTeam: {
+    mostAccuratelyPredicted: CorrectTeamAggregate[];
+    leastAccuratelyPredicted: CorrectTeamAggregate[];
+  };
+  message?: string;
 }
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
@@ -48,8 +125,8 @@ const Stats = () => {
   const navigate = useNavigate();
   const [rankings, setRankings] = useState<Ranking[]>([]);
   const [userStats, setUserStats] = useState<UserStats | null>(null);
+  const [aggregate, setAggregate] = useState<AggregateStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [event, setEvent] = useState<any>(null);
 
   useEffect(() => {
     if (eventCode) {
@@ -60,20 +137,20 @@ const Stats = () => {
   const fetchData = async () => {
     try {
       const eventResponse = await axios.get(`${API_URL}/api/events/code/${eventCode}`);
-      setEvent(eventResponse.data.event);
+      const eventId = eventResponse.data.event.id;
 
-      const rankingsResponse = await axios.get(
-        `${API_URL}/api/stats/${eventResponse.data.event.id}/rankings`
-      );
+      const [rankingsResponse, aggregateResponse] = await Promise.all([
+        axios.get(`${API_URL}/api/stats/${eventId}/rankings`),
+        axios.get(`${API_URL}/api/stats/${eventId}/aggregate`),
+      ]);
       setRankings(rankingsResponse.data.rankings);
+      setAggregate(aggregateResponse.data.message ? null : aggregateResponse.data);
 
       if (user) {
         try {
-          const statsResponse = await axios.get(
-            `${API_URL}/api/stats/${eventResponse.data.event.id}/my-stats`
-          );
+          const statsResponse = await axios.get(`${API_URL}/api/stats/${eventId}/my-stats`);
           setUserStats(statsResponse.data);
-        } catch (error) {
+        } catch {
           // User may not have submitted
         }
       }
@@ -95,6 +172,10 @@ const Stats = () => {
   const chartData = rankings.slice(0, 10).map((r) => ({
     name: r.userName,
     score: r.score,
+    playerSlot: r.categoryScores?.playerSlot ?? r.playerSlotScore ?? 0,
+    teamOrder: r.categoryScores?.teamOrder ?? r.teamOrderScore ?? 0,
+    correctTeam: r.categoryScores?.correctTeam ?? r.correctTeamScore ?? 0,
+    correctRound: r.categoryScores?.correctRound ?? r.correctRoundScore ?? 0,
     exact: r.exactMatches,
     close: r.closeMatches,
   }));
@@ -122,28 +203,191 @@ const Stats = () => {
           {userStats && (
             <div className="bg-white shadow rounded-lg p-6 mb-6">
               <h2 className="text-2xl font-bold text-gray-900 mb-4">Your Stats</h2>
-              <div className="grid grid-cols-3 gap-4 mb-4">
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-indigo-600">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 mb-4">
+                <div className="text-center p-3 rounded-lg bg-indigo-50">
+                  <div className="text-2xl font-bold text-indigo-600">
                     {userStats.stats.exactMatches}
                   </div>
-                  <div className="text-sm text-gray-600">Exact Matches</div>
+                  <div className="text-xs text-gray-600">Exact (slot)</div>
                 </div>
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-green-600">
+                <div className="text-center p-3 rounded-lg bg-emerald-50">
+                  <div className="text-2xl font-bold text-emerald-600">
                     {userStats.stats.closeMatches}
                   </div>
-                  <div className="text-sm text-gray-600">Close Matches</div>
+                  <div className="text-xs text-gray-600">Near (±1–3)</div>
                 </div>
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-purple-600">
-                    {userStats.stats.score}
+                <div className="text-center p-3 rounded-lg bg-amber-50">
+                  <div className="text-2xl font-bold text-amber-700">
+                    {userStats.stats.teamOrderExactMatches ?? 0}
                   </div>
-                  <div className="text-sm text-gray-600">Total Score</div>
+                  <div className="text-xs text-gray-600">Team order</div>
+                </div>
+                <div className="text-center p-3 rounded-lg bg-cyan-50">
+                  <div className="text-2xl font-bold text-cyan-700">
+                    {userStats.stats.correctTeamMatches ?? 0}
+                  </div>
+                  <div className="text-xs text-gray-600">Correct team</div>
+                </div>
+                <div className="text-center p-3 rounded-lg bg-violet-50">
+                  <div className="text-2xl font-bold text-violet-600">
+                    {userStats.stats.correctRoundMatches ?? 0}
+                  </div>
+                  <div className="text-xs text-gray-600">Correct round</div>
                 </div>
               </div>
-              <div className="text-sm text-gray-500">
-                Last saved: {new Date(userStats.submission.submittedAt).toLocaleString()}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4 p-3 bg-gray-50 rounded-lg">
+                <div className="text-center">
+                  <span className="text-lg font-semibold text-gray-900">{userStats.stats.playerSlotScore ?? userStats.stats.exactMatches * 10 + (userStats.stats.closeMatches || 0) * 3}</span>
+                  <span className="text-xs text-gray-500 block">Player slot pts</span>
+                </div>
+                <div className="text-center">
+                  <span className="text-lg font-semibold text-gray-900">{userStats.stats.teamOrderScore ?? 0}</span>
+                  <span className="text-xs text-gray-500 block">Team order pts</span>
+                </div>
+                <div className="text-center">
+                  <span className="text-lg font-semibold text-gray-900">{userStats.stats.correctTeamScore ?? 0}</span>
+                  <span className="text-xs text-gray-500 block">Correct team pts</span>
+                </div>
+                <div className="text-center">
+                  <span className="text-lg font-semibold text-gray-900">{userStats.stats.correctRoundScore ?? 0}</span>
+                  <span className="text-xs text-gray-500 block">Correct round pts</span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="text-2xl font-bold text-purple-600">Total: {userStats.stats.score}</div>
+                <div className="text-sm text-gray-500">
+                  Last saved: {new Date(userStats.submission.submittedAt).toLocaleString()}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {aggregate != null && (
+            <div className="bg-white shadow rounded-lg p-6 mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-1">Draft Insights</h2>
+              <p className="text-sm text-gray-500 mb-6">
+                How the draft played out across all predictions. Based on {aggregate.totalSubmissions} submission{aggregate.totalSubmissions !== 1 ? 's' : ''}
+                {aggregate.totalWithTeamOrder > 0 && aggregate.totalWithTeamOrder !== aggregate.totalSubmissions
+                  ? ` (${aggregate.totalWithTeamOrder} with team order)`
+                  : ''}.
+              </p>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                {/* Players: most / least / surprises */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">Players (slot)</h3>
+                  <div>
+                    <h4 className="text-sm font-medium text-emerald-700 mb-2">Most accurately predicted</h4>
+                    <ul className="text-sm space-y-1">
+                      {aggregate.players.mostAccuratelyPredicted.slice(0, 5).map((p) => (
+                        <li key={p.playerId} className="flex justify-between gap-2">
+                          <span className="truncate" title={p.teamName ?? undefined}>{p.playerName}{p.teamName ? ` (${p.teamName})` : ''}</span>
+                          <span className="text-emerald-600 shrink-0">{p.exactCount}/{p.totalPredicted}</span>
+                        </li>
+                      ))}
+                      {aggregate.players.mostAccuratelyPredicted.length === 0 && (
+                        <li className="text-gray-500">—</li>
+                      )}
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-medium text-amber-700 mb-2">Least accurately predicted</h4>
+                    <ul className="text-sm space-y-1">
+                      {aggregate.players.leastAccuratelyPredicted.slice(0, 5).map((p) => (
+                        <li key={p.playerId} className="flex justify-between gap-2">
+                          <span className="truncate" title={p.teamName ?? undefined}>{p.playerName}{p.teamName ? ` (${p.teamName})` : ''}</span>
+                          <span className="text-amber-600 shrink-0">{p.exactCount}/{p.totalPredicted}</span>
+                        </li>
+                      ))}
+                      {aggregate.players.leastAccuratelyPredicted.length === 0 && (
+                        <li className="text-gray-500">—</li>
+                      )}
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-medium text-violet-600 mb-2">Biggest surprises</h4>
+                    <p className="text-xs text-gray-500 mb-1">Went most differently than the crowd expected (avg predicted vs actual)</p>
+                    <ul className="text-sm space-y-1">
+                      {aggregate.players.biggestSurprises.slice(0, 5).map((p) => (
+                        <li key={p.playerId} className="flex justify-between gap-2">
+                          <span className="truncate" title={p.teamName ?? undefined}>{p.playerName}{p.teamName ? ` (${p.teamName})` : ''}</span>
+                          <span className="text-violet-600 shrink-0" title={`Avg predicted ~${p.avgPredicted}, actual #${p.actualPick}`}>
+                            #{p.actualPick} (Δ{p.avgError ?? '?'})
+                          </span>
+                        </li>
+                      ))}
+                      {aggregate.players.biggestSurprises.length === 0 && (
+                        <li className="text-gray-500">—</li>
+                      )}
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Team order */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">Team draft order</h3>
+                  <div>
+                    <h4 className="text-sm font-medium text-emerald-700 mb-2">Most accurately predicted</h4>
+                    <ul className="text-sm space-y-1">
+                      {aggregate.teamOrder.mostAccuratelyPredicted.slice(0, 5).map((t) => (
+                        <li key={t.teamId} className="flex justify-between gap-2">
+                          <span>{t.teamName} <span className="text-gray-400">(#{t.actualPosition})</span></span>
+                          <span className="text-emerald-600 shrink-0">{t.correctCount}/{t.totalSubmissions}</span>
+                        </li>
+                      ))}
+                      {aggregate.teamOrder.mostAccuratelyPredicted.length === 0 && (
+                        <li className="text-gray-500">—</li>
+                      )}
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-medium text-amber-700 mb-2">Least accurately predicted</h4>
+                    <ul className="text-sm space-y-1">
+                      {aggregate.teamOrder.leastAccuratelyPredicted.slice(0, 5).map((t) => (
+                        <li key={t.teamId} className="flex justify-between gap-2">
+                          <span>{t.teamName} <span className="text-gray-400">(#{t.actualPosition})</span></span>
+                          <span className="text-amber-600 shrink-0">{t.correctCount}/{t.totalSubmissions}</span>
+                        </li>
+                      ))}
+                      {aggregate.teamOrder.leastAccuratelyPredicted.length === 0 && (
+                        <li className="text-gray-500">—</li>
+                      )}
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Correct team (which team drafts which player) */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">Correct team (who drafts whom)</h3>
+                  <div>
+                    <h4 className="text-sm font-medium text-emerald-700 mb-2">Most accurately predicted</h4>
+                    <ul className="text-sm space-y-1">
+                      {aggregate.correctTeam.mostAccuratelyPredicted.slice(0, 5).map((t) => (
+                        <li key={t.teamId} className="flex justify-between gap-2">
+                          <span>{t.teamName}</span>
+                          <span className="text-emerald-600 shrink-0">{t.correctCount}/{t.totalPossible}</span>
+                        </li>
+                      ))}
+                      {aggregate.correctTeam.mostAccuratelyPredicted.length === 0 && (
+                        <li className="text-gray-500">—</li>
+                      )}
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-medium text-amber-700 mb-2">Least accurately predicted</h4>
+                    <ul className="text-sm space-y-1">
+                      {aggregate.correctTeam.leastAccuratelyPredicted.slice(0, 5).map((t) => (
+                        <li key={t.teamId} className="flex justify-between gap-2">
+                          <span>{t.teamName}</span>
+                          <span className="text-amber-600 shrink-0">{t.correctCount}/{t.totalPossible}</span>
+                        </li>
+                      ))}
+                      {aggregate.correctTeam.leastAccuratelyPredicted.length === 0 && (
+                        <li className="text-gray-500">—</li>
+                      )}
+                    </ul>
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -162,9 +406,10 @@ const Stats = () => {
                       <YAxis />
                       <Tooltip />
                       <Legend />
-                      <Bar dataKey="score" fill="#6366f1" name="Score" />
-                      <Bar dataKey="exact" fill="#10b981" name="Exact Matches" />
-                      <Bar dataKey="close" fill="#3b82f6" name="Close Matches" />
+                      <Bar dataKey="playerSlot" stackId="score" fill="#6366f1" name="Player slot" />
+                      <Bar dataKey="teamOrder" stackId="score" fill="#f59e0b" name="Team order" />
+                      <Bar dataKey="correctTeam" stackId="score" fill="#06b6d4" name="Correct team" />
+                      <Bar dataKey="correctRound" stackId="score" fill="#8b5cf6" name="Correct round" />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -185,7 +430,16 @@ const Stats = () => {
                           Exact
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Close
+                          Near
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" title="Team order correct">
+                          Team ord
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" title="Correct team per player">
+                          Corr. team
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" title="Correct round per player">
+                          Corr. round
                         </th>
                       </tr>
                     </thead>
@@ -204,7 +458,7 @@ const Stats = () => {
                               <span className="ml-2 text-xs text-indigo-600">(You)</span>
                             )}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                             {ranking.score}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -212,6 +466,15 @@ const Stats = () => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             {ranking.closeMatches}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {ranking.teamOrderExactMatches ?? '—'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {ranking.correctTeamMatches ?? '—'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {ranking.correctRoundMatches ?? '—'}
                           </td>
                         </tr>
                       ))}
@@ -233,16 +496,22 @@ const Stats = () => {
                         Player
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Predicted
+                        Pred #
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Actual
+                        Actual #
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Difference
+                        Diff
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Team
+                        Pred. team
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actual team
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" title="Correct team">
+                        Team ✓
                       </th>
                     </tr>
                   </thead>
@@ -265,7 +534,7 @@ const Stats = () => {
                           #{match.predicted}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {match.actual ? `#${match.actual}` : 'Not drafted'}
+                          {match.actual != null ? `#${match.actual}` : 'Not drafted'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {match.difference !== null ? (
@@ -285,7 +554,15 @@ const Stats = () => {
                           )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {match.team || '-'}
+                          {match.predictedTeam ?? '-'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {match.team ?? match.actualTeam ?? '-'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                          {match.correctTeam === true && <span className="text-green-600" aria-label="Correct team">✓</span>}
+                          {match.correctTeam === false && <span className="text-gray-400">—</span>}
+                          {match.correctTeam == null && <span className="text-gray-400">—</span>}
                         </td>
                       </tr>
                     ))}

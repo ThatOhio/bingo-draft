@@ -282,6 +282,7 @@ const DraftSubmission = () => {
   const [teamOrder, setTeamOrder] = useState<string[]>([]);
   const [teamOrderLocked, setTeamOrderLocked] = useState(false);
   const [playersByTeamWhenEditing, setPlayersByTeamWhenEditing] = useState<Record<string, Record<number, string>> | null>(null);
+  const [showSavedState, setShowSavedState] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -392,7 +393,7 @@ const DraftSubmission = () => {
       toTeamId = parts.slice(1).join('-') || undefined;
     }
 
-    setGrid((g) => {
+      setGrid((g) => {
       const next = { ...g };
       const fromKey = fromRound != null && fromTeamId ? `${fromRound}-${fromTeamId}` : null;
       if (fromKey) delete next[fromKey];
@@ -410,6 +411,7 @@ const DraftSubmission = () => {
       }
       return next;
     });
+    setShowSavedState(false);
   };
 
   const handleSave = async () => {
@@ -431,6 +433,7 @@ const DraftSubmission = () => {
         teamOrder: teamIds,
       });
       setSubmission(res.data.submission);
+      setShowSavedState(true);
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to save prediction');
     } finally {
@@ -515,6 +518,7 @@ const DraftSubmission = () => {
                   const n = teamIds.indexOf(over.id as string);
                   if (o === -1 || n === -1) return;
                   setTeamOrder(arrayMove(teamIds, o, n));
+                  setShowSavedState(false);
                 }}
               >
                 <SortableContext items={teamIds} strategy={verticalListSortingStrategy}>
@@ -699,9 +703,13 @@ const DraftSubmission = () => {
             <button
               onClick={handleSave}
               disabled={saving}
-              className="px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className={`px-6 py-2 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed ${
+                showSavedState
+                  ? 'bg-green-600 hover:bg-green-700'
+                  : 'bg-indigo-600 hover:bg-indigo-700'
+              }`}
             >
-              {saving ? 'Saving...' : 'Save prediction'}
+              {saving ? 'Saving...' : showSavedState ? 'Saved ✓' : 'Save prediction'}
             </button>
           )}
         </div>
