@@ -151,12 +151,12 @@ const EventPage = () => {
                 className="bg-white shadow rounded-lg p-6 hover:shadow-lg transition-shadow"
               >
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                  {hasSubmission ? 'Edit Your Draft Order' : 'Submit Draft Order'}
+                  {hasSubmission ? 'Edit your prediction' : 'Save your prediction'}
                 </h3>
                 <p className="text-gray-600">
                   {hasSubmission
-                    ? 'Update your prediction for the draft order'
-                    : 'Create and submit your prediction for how the draft will go'}
+                    ? 'Continue editing and save your prediction. You can save partial progress and come back later.'
+                    : 'Create and save your prediction for how the draft will go. You can save partial progress and come back later.'}
                 </p>
               </Link>
             )}

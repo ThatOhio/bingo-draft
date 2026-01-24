@@ -58,20 +58,29 @@ function isValidSlot(round: number, teamIndex: number, numTeams: number, totalSl
   return roundAndTeamIndexToSlot(round, teamIndex, numTeams) < totalSlots;
 }
 
-// Convert grid (key: `${round}-${teamId}`, value: playerId) to playerOrder for API
-function gridToPlayerOrder(
+// Convert grid to placements: { playerId, position } where position is 1-based pick number (slot).
+// This preserves each player's actual board position for partial saves.
+function gridToPlacements(
   grid: Record<string, string>,
   teamIds: string[],
+  numTeams: number,
   totalSlots: number
-): string[] {
-  const order: string[] = [];
-  for (let i = 0; i < totalSlots; i++) {
-    const { round, teamIndex } = slotToRoundAndTeamIndex(i, teamIds.length);
-    const teamId = teamIds[teamIndex];
-    const playerId = grid[`${round}-${teamId}`];
-    if (playerId) order.push(playerId);
+): { playerId: string; position: number }[] {
+  const placements: { playerId: string; position: number }[] = [];
+  for (const key of Object.keys(grid)) {
+    const playerId = grid[key];
+    if (!playerId) continue;
+    const dashIdx = key.indexOf('-');
+    if (dashIdx === -1) continue;
+    const round = parseInt(key.slice(0, dashIdx), 10);
+    const teamId = key.slice(dashIdx + 1);
+    const teamIndex = teamIds.indexOf(teamId);
+    if (teamIndex === -1) continue;
+    if (!isValidSlot(round, teamIndex, numTeams, totalSlots)) continue;
+    const slotIndex = roundAndTeamIndexToSlot(round, teamIndex, numTeams);
+    placements.push({ playerId, position: slotIndex + 1 });
   }
-  return order;
+  return placements;
 }
 
 // Convert submission items (position 1-based) to grid
@@ -86,6 +95,47 @@ function submissionToGrid(
     const { round, teamIndex } = slotToRoundAndTeamIndex(pickIndex, numTeams);
     const teamId = teamIds[teamIndex];
     grid[`${round}-${teamId}`] = it.playerId;
+  }
+  return grid;
+}
+
+// Extract from grid: for each teamId, round -> playerId. Used when editing team order so we can
+// rebuild the grid after reorder: each team keeps its same players in the same pick order.
+function gridToPlayersByTeam(
+  grid: Record<string, string>,
+  teamIds: string[],
+  numTeams: number,
+  totalSlots: number
+): Record<string, Record<number, string>> {
+  const byTeam: Record<string, Record<number, string>> = {};
+  for (let slotIndex = 0; slotIndex < totalSlots; slotIndex++) {
+    const { round, teamIndex } = slotToRoundAndTeamIndex(slotIndex, numTeams);
+    const teamId = teamIds[teamIndex];
+    if (teamIds.indexOf(teamId) === -1) continue;
+    const key = `${round}-${teamId}`;
+    const playerId = grid[key];
+    if (playerId) {
+      if (!byTeam[teamId]) byTeam[teamId] = {};
+      byTeam[teamId][round] = playerId;
+    }
+  }
+  return byTeam;
+}
+
+// Rebuild grid from playersByTeam and a (possibly new) team order. Each team's players stay
+// with that team in the same round/pick order; only the columns (team order) change.
+function playersByTeamToGrid(
+  playersByTeam: Record<string, Record<number, string>>,
+  teamIds: string[],
+  numTeams: number,
+  totalSlots: number
+): Record<string, string> {
+  const grid: Record<string, string> = {};
+  for (let slotIndex = 0; slotIndex < totalSlots; slotIndex++) {
+    const { round, teamIndex } = slotToRoundAndTeamIndex(slotIndex, numTeams);
+    const teamId = teamIds[teamIndex];
+    const playerId = playersByTeam[teamId]?.[round];
+    if (playerId) grid[`${round}-${teamId}`] = playerId;
   }
   return grid;
 }
@@ -231,8 +281,9 @@ const DraftSubmission = () => {
   const [grid, setGrid] = useState<Record<string, string>>({});
   const [teamOrder, setTeamOrder] = useState<string[]>([]);
   const [teamOrderLocked, setTeamOrderLocked] = useState(false);
+  const [playersByTeamWhenEditing, setPlayersByTeamWhenEditing] = useState<Record<string, Record<number, string>> | null>(null);
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [submission, setSubmission] = useState<Submission | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -361,32 +412,29 @@ const DraftSubmission = () => {
     });
   };
 
-  const handleSubmit = async () => {
+  const handleSave = async () => {
     if (!eventCode || !event) return;
 
-    const playerOrder = gridToPlayerOrder(grid, teamIds, totalSlots);
-    if (playerOrder.length !== totalSlots) {
-      setError(`Place all ${totalSlots} players on the board before submitting.`);
-      return;
-    }
-    if (new Set(playerOrder).size !== playerOrder.length) {
+    const placements = gridToPlacements(grid, teamIds, numTeams, totalSlots);
+    const playerIds = placements.map((p) => p.playerId);
+    if (new Set(playerIds).size !== playerIds.length) {
       setError('Duplicate placements detected. Each player must appear exactly once.');
       return;
     }
 
-    setSubmitting(true);
+    setSaving(true);
     setError('');
 
     try {
-      await axios.post(`${API_URL}/api/draft/${event.id}/submit-order`, {
-        playerOrder,
+      const res = await axios.post(`${API_URL}/api/draft/${event.id}/submit-order`, {
+        placements,
         teamOrder: teamIds,
       });
-      navigate(`/event/${eventCode}`);
+      setSubmission(res.data.submission);
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to submit draft order');
+      setError(err.response?.data?.error || 'Failed to save prediction');
     } finally {
-      setSubmitting(false);
+      setSaving(false);
     }
   };
 
@@ -439,7 +487,7 @@ const DraftSubmission = () => {
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         {isLocked && (
           <div className="mb-4 bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded">
-            This submission is locked. You can view it but cannot make changes.
+            This prediction is locked. You can view it but cannot make changes.
           </div>
         )}
 
@@ -489,7 +537,13 @@ const DraftSubmission = () => {
               {!isLocked && (
                 <button
                   type="button"
-                  onClick={() => setTeamOrderLocked(true)}
+                  onClick={() => {
+                    if (playersByTeamWhenEditing) {
+                      setGrid(playersByTeamToGrid(playersByTeamWhenEditing, teamOrder, numTeams, totalSlots));
+                      setPlayersByTeamWhenEditing(null);
+                    }
+                    setTeamOrderLocked(true);
+                  }}
                   className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
                 >
                   Lock team order
@@ -511,16 +565,22 @@ const DraftSubmission = () => {
                 })}
               </div>
               {!isLocked && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setTeamOrderLocked(false);
-                    setGrid({});
-                  }}
-                  className="text-sm text-indigo-600 hover:text-indigo-800"
-                >
-                  Edit team order
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPlayersByTeamWhenEditing(gridToPlayersByTeam(grid, teamIds, numTeams, totalSlots));
+                      setTeamOrderLocked(false);
+                      setGrid({});
+                    }}
+                    className="text-sm text-indigo-600 hover:text-indigo-800"
+                  >
+                    Edit team order
+                  </button>
+                  <span className="text-xs text-gray-500 ml-2">
+                    Your player predictions will move with each team to their new column.
+                  </span>
+                </>
               )}
             </>
           )}
@@ -532,7 +592,7 @@ const DraftSubmission = () => {
             <div className="mb-4">
               <h2 className="text-2xl font-bold text-gray-900 mb-2">Draft board</h2>
               <p className="text-gray-600">
-                Drag players from the list into the slots to predict the draft order. Columns follow your team order above. Each slot is a pick in snake order.
+                Drag players from the list into the slots to predict the draft order. Columns follow your team order above. Each slot is a pick in snake order. You can save at any time—partial predictions are fine, and whatever you have saved when the draft starts will count.
               </p>
             </div>
 
@@ -629,14 +689,19 @@ const DraftSubmission = () => {
         <div className="mt-6 flex justify-between items-center">
           <div className="text-sm text-gray-600">
             {placedIds.length} of {totalSlots} players placed
+            {submission?.submittedAt && !isLocked && (
+              <span className="ml-3 text-gray-500">
+                · Last saved: {new Date(submission.submittedAt).toLocaleString()}
+              </span>
+            )}
           </div>
           {!isLocked && (
             <button
-              onClick={handleSubmit}
-              disabled={submitting || placedIds.length !== totalSlots}
+              onClick={handleSave}
+              disabled={saving}
               className="px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {submitting ? 'Submitting...' : 'Submit predictions'}
+              {saving ? 'Saving...' : 'Save prediction'}
             </button>
           )}
         </div>

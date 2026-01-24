@@ -6,8 +6,13 @@ import { getIO } from '../socketManager';
 
 const router = express.Router();
 
+const placementSchema = z.object({
+  playerId: z.string(),
+  position: z.number().int().min(1), // 1-based pick number (slot) on the board
+});
+
 const submitDraftOrderSchema = z.object({
-  playerOrder: z.array(z.string()).min(1),
+  placements: z.array(placementSchema), // Each { playerId, position } preserves board slot for partial saves
   teamOrder: z.array(z.string()).optional(), // User's predicted team draft order (team IDs: 1st, 2nd, ...)
 });
 
@@ -15,7 +20,7 @@ const submitDraftOrderSchema = z.object({
 router.post('/:eventId/submit-order', authenticate, async (req: AuthRequest, res) => {
   try {
     const { eventId } = req.params;
-    const { playerOrder, teamOrder: rawTeamOrder } = submitDraftOrderSchema.parse(req.body);
+    const { placements, teamOrder: rawTeamOrder } = submitDraftOrderSchema.parse(req.body);
     const userId = req.userId!;
 
     const event = await prisma.event.findUnique({
@@ -35,16 +40,24 @@ router.post('/:eventId/submit-order', authenticate, async (req: AuthRequest, res
       return res.status(400).json({ error: 'Draft has already started. Predictions are locked.' });
     }
 
+    const totalSlots = event.players.length;
     const playerIds = event.players.map(p => p.id);
-    const invalidPlayers = playerOrder.filter(id => !playerIds.includes(id));
+
+    const placementPlayerIds = placements.map(p => p.playerId);
+    const invalidPlayers = placementPlayerIds.filter(id => !playerIds.includes(id));
     if (invalidPlayers.length > 0) {
       return res.status(400).json({ error: 'Invalid players in draft order' });
     }
-    if (playerOrder.length !== playerIds.length) {
-      return res.status(400).json({ error: 'Draft order must include all players' });
-    }
-    if (new Set(playerOrder).size !== playerOrder.length) {
+    if (new Set(placementPlayerIds).size !== placementPlayerIds.length) {
       return res.status(400).json({ error: 'Duplicate players in draft order' });
+    }
+    const invalidPositions = placements.filter(p => p.position < 1 || p.position > totalSlots);
+    if (invalidPositions.length > 0) {
+      return res.status(400).json({ error: 'Placement position must be between 1 and the number of players' });
+    }
+    const positionCount = new Set(placements.map(p => p.position));
+    if (positionCount.size !== placements.length) {
+      return res.status(400).json({ error: 'Duplicate slot positions in draft order' });
     }
 
     const teamIds = event.teams.map((t) => t.id);
@@ -72,9 +85,9 @@ router.post('/:eventId/submit-order', authenticate, async (req: AuthRequest, res
         teamOrder,
         locked: draftStarted || (event.draftDeadline ? new Date() > new Date(event.draftDeadline) : false),
         items: {
-          create: playerOrder.map((playerId, index) => ({
+          create: placements.map(({ playerId, position }) => ({
             playerId,
-            position: index + 1,
+            position,
           })),
         },
       },

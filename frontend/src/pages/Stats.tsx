@@ -143,7 +143,7 @@ const Stats = () => {
                 </div>
               </div>
               <div className="text-sm text-gray-500">
-                Submitted: {new Date(userStats.submission.submittedAt).toLocaleString()}
+                Last saved: {new Date(userStats.submission.submittedAt).toLocaleString()}
               </div>
             </div>
           )}
