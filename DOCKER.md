@@ -56,7 +56,7 @@ In the [Discord Developer Portal](https://discord.com/developers/applications):
 
 ## Architecture
 
-- **`api`**: Node backend. Runs Prisma migrations on startup, then the server. Connects to external Postgres via `DATABASE_URL`. Only reached via nginx.
+- **`api`**: Node backend on `node:20-slim` (Debian). Uses Prisma; Prisma’s native engines require glibc/OpenSSL, so we use a Debian-based image instead of Alpine. Runs migrations on startup, then the server. Connects to external Postgres via `DATABASE_URL`. Only reached via nginx.
 - **`frontend`**: Vite build served by nginx; proxies `/api` and `/socket.io` to `api`. `VITE_API_URL` comes from `SITE_URL` at build time.
 
 In this workspace, `npm install` in `backend/` or `frontend/` does not create a local `package-lock.json` (the root workspace lockfile is used). The Dockerfiles therefore use `npm install` instead of `npm ci`.

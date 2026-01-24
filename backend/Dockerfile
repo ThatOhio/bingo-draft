@@ -1,5 +1,6 @@
-# Build stage
-FROM node:20-alpine AS builder
+# Build stage. Use Debian-based Node (not Alpine): Prisma's native engines require
+# glibc/OpenSSL compatible with its pre-built binaries; Alpine/musl often fails.
+FROM node:20-slim AS builder
 
 WORKDIR /app
 
@@ -16,8 +17,8 @@ COPY . .
 
 RUN npm run build
 
-# Production stage
-FROM node:20-alpine
+# Production stage (Debian-based for Prisma engine compatibility)
+FROM node:20-slim
 
 WORKDIR /app
 
