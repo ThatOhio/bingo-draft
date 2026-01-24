@@ -51,13 +51,13 @@ function SortableTeamRow({
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={`flex items-center gap-2 py-1.5 px-2 rounded border border-gray-200 bg-gray-50 ${isDragging ? 'opacity-70 shadow-lg z-10' : ''} cursor-grab active:cursor-grabbing`}
+      className={`flex items-center gap-2 py-1.5 px-2 rounded border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 ${isDragging ? 'opacity-70 shadow-lg z-10' : ''} cursor-grab active:cursor-grabbing`}
       {...attributes}
       {...listeners}
     >
-      <span className="text-gray-400 select-none" aria-hidden>⋮⋮</span>
-      <span className="text-sm font-medium text-gray-500 w-6">#{index}</span>
-      <span className="flex-1 font-medium text-gray-900">{team.name}</span>
+      <span className="text-gray-400 dark:text-gray-500 select-none" aria-hidden>⋮⋮</span>
+      <span className="text-sm font-medium text-gray-500 dark:text-gray-400 w-6">#{index}</span>
+      <span className="flex-1 font-medium text-gray-900 dark:text-gray-100">{team.name}</span>
     </div>
   );
 }
@@ -407,48 +407,48 @@ const AdminDashboard = () => {
             <div className="p-6">
               {activeTab === 'users' && (
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900 mb-4">User Management</h2>
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">User Management</h2>
                   <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
+                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                      <thead className="bg-gray-50 dark:bg-gray-700/50">
                         <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                             Discord Username
                           </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                             Discord ID
                           </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                             Role
                           </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                             Created
                           </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                             Actions
                           </th>
                         </tr>
                       </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
+                      <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                         {users.map((u) => (
                           <tr key={u.id}>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
                               {u.discordUsername}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                               {u.discordId}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                               {u.role}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                               {new Date(u.createdAt).toLocaleDateString()}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm">
                               <select
                                 value={u.role}
                                 onChange={(e) => updateUserRole(u.id, e.target.value)}
-                                className="border border-gray-300 rounded px-2 py-1"
+                                className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                               >
                                 <option value="USER">User</option>
                                 <option value="ADMIN">Admin</option>
@@ -464,16 +464,16 @@ const AdminDashboard = () => {
 
               {activeTab === 'events' && (
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900 mb-4">Events</h2>
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Events</h2>
                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                     {events.map((event) => (
                       <Link
                         key={event.id}
                         to={`/event/${event.eventCode}`}
-                        className="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors"
+                        className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                       >
-                        <h3 className="font-semibold text-gray-900 mb-2">{event.name}</h3>
-                        <div className="text-sm text-gray-600">
+                        <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">{event.name}</h3>
+                        <div className="text-sm text-gray-600 dark:text-gray-400">
                           <p>Code: {event.eventCode}</p>
                           <p>Status: {event.status}</p>
                           <p>Players: {event._count.players}</p>
@@ -488,11 +488,11 @@ const AdminDashboard = () => {
 
               {activeTab === 'event-management' && (
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900 mb-4">Event Management</h2>
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Event Management</h2>
                   
                   {/* Event Selection */}
                   <div className="mb-6">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Select Event
                     </label>
                     <select
@@ -504,7 +504,7 @@ const AdminDashboard = () => {
                           fetchEventDetails(event.id);
                         }
                       }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                     >
                       <option value="">-- Select an event --</option>
                       {events.map((event) => (
@@ -519,14 +519,14 @@ const AdminDashboard = () => {
                     <div className="space-y-6">
                       {/* Event Status Control */}
                       {eventDetails && (
-                        <div className="bg-white border border-gray-200 p-4 rounded-lg">
-                          <h3 className="text-lg font-semibold text-gray-900 mb-3">Event Status</h3>
+                        <div className="bg-white dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 p-4 rounded-lg">
+                          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Event Status</h3>
                           <div className="flex items-center gap-4">
-                            <span className="text-sm text-gray-600">Current Status: <strong>{eventDetails.status}</strong></span>
+                            <span className="text-sm text-gray-600 dark:text-gray-400">Current Status: <strong className="text-gray-900 dark:text-gray-100">{eventDetails.status}</strong></span>
                             <select
                               value={eventDetails.status}
                               onChange={(e) => handleUpdateEventStatus(selectedEvent.id, e.target.value)}
-                              className="px-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                              className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                             >
                               <option value="PLANNED">Planned</option>
                               <option value="OPEN">Open</option>
@@ -545,7 +545,7 @@ const AdminDashboard = () => {
                             </button>
                           )}
                           {eventDetails.draftOrder && (
-                            <p className="mt-2 text-sm text-gray-600">
+                            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
                               Draft initialized - Round {eventDetails.draftOrder.currentRound}, Pick {eventDetails.draftOrder.currentPick + 1}
                             </p>
                           )}
@@ -554,9 +554,9 @@ const AdminDashboard = () => {
 
                       {/* Team draft order (1st, 2nd, ... to draft). Editable until Initialize; drag to reorder. */}
                       {eventDetails && eventDetails.teams?.length > 0 && !eventDetails.draftOrder && (
-                        <div className="bg-white border border-gray-200 p-4 rounded-lg">
-                          <h3 className="text-lg font-semibold text-gray-900 mb-2">Team draft order</h3>
-                          <p className="text-sm text-gray-600 mb-3">
+                        <div className="bg-white dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 p-4 rounded-lg">
+                          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Team draft order</h3>
+                          <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
                             Drag teams to set which picks 1st, 2nd, 3rd, etc. in round 1. Locked once you Initialize Draft.
                           </p>
                           {(() => {
@@ -603,22 +603,22 @@ const AdminDashboard = () => {
                       )}
 
                       {/* Team Management */}
-                      <div className="bg-white border border-gray-200 p-4 rounded-lg">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-3">Manage Teams</h3>
+                      <div className="bg-white dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 p-4 rounded-lg">
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Manage Teams</h3>
                         {eventDetails && (
                           <div className="mb-4 space-y-4">
-                            <p className="text-sm text-gray-600">Current Teams ({eventDetails.teams?.length || 0}):</p>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">Current Teams ({eventDetails.teams?.length || 0}):</p>
                             {eventDetails.teams?.map((team: any) => (
-                              <div key={team.id} className="border border-gray-200 rounded-lg p-3">
-                                <p className="font-medium text-gray-900 mb-2">{team.name}</p>
+                              <div key={team.id} className="border border-gray-200 dark:border-gray-600 rounded-lg p-3">
+                                <p className="font-medium text-gray-900 dark:text-gray-100 mb-2">{team.name}</p>
                                 <div className="space-y-2">
                                   {team.captains?.map((cap: any) => (
-                                    <div key={cap.id} className="flex items-center justify-between gap-2 py-1 text-sm">
+                                    <div key={cap.id} className="flex items-center justify-between gap-2 py-1 text-sm text-gray-900 dark:text-gray-100">
                                       <span>{cap.player?.name} @{cap.discordUsername}</span>
                                       <button
                                         type="button"
                                         onClick={() => handleRemoveCaptain(team.id, cap.id)}
-                                        className="text-red-600 hover:text-red-800"
+                                        className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
                                       >
                                         Remove
                                       </button>
@@ -627,7 +627,7 @@ const AdminDashboard = () => {
                                 </div>
                                 <div className="mt-2 flex flex-wrap gap-2 items-end">
                                   <div>
-                                    <label className="block text-xs text-gray-500 mb-0.5">Player</label>
+                                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-0.5">Player</label>
                                     <select
                                       value={addCaptainByTeam[team.id]?.playerId || ''}
                                       onChange={(e) =>
@@ -636,7 +636,7 @@ const AdminDashboard = () => {
                                           [team.id]: { ...(prev[team.id] || { playerId: '', discordUsername: '' }), playerId: e.target.value },
                                         }))
                                       }
-                                      className="px-2 py-1.5 border border-gray-300 rounded text-sm"
+                                      className="px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                                     >
                                       <option value="">Select</option>
                                       {(eventDetails.players || []).map((p: any) => (
@@ -645,7 +645,7 @@ const AdminDashboard = () => {
                                     </select>
                                   </div>
                                   <div>
-                                    <label className="block text-xs text-gray-500 mb-0.5">Discord username</label>
+                                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-0.5">Discord username</label>
                                     <input
                                       type="text"
                                       value={addCaptainByTeam[team.id]?.discordUsername || ''}
@@ -656,7 +656,7 @@ const AdminDashboard = () => {
                                         }))
                                       }
                                       placeholder="username"
-                                      className="px-2 py-1.5 border border-gray-300 rounded text-sm w-36"
+                                      className="px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-sm w-36 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
                                     />
                                   </div>
                                   <button
@@ -672,7 +672,7 @@ const AdminDashboard = () => {
                             ))}
                           </div>
                         )}
-                        <p className="text-sm text-gray-600 mb-2">Create new team (add captains now or later):</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Create new team (add captains now or later):</p>
                         <div className="space-y-3">
                           <div className="flex gap-2">
                             <input
@@ -680,7 +680,7 @@ const AdminDashboard = () => {
                               value={newTeamName}
                               onChange={(e) => setNewTeamName(e.target.value)}
                               placeholder="Team name *"
-                              className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                              className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
                               onKeyPress={(e) => e.key === 'Enter' && handleCreateTeam()}
                             />
                             <button
@@ -692,7 +692,7 @@ const AdminDashboard = () => {
                             </button>
                           </div>
                           <div>
-                            <p className="text-xs text-gray-600 mb-1">Captains (player + Discord username; must already be in this event):</p>
+                            <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Captains (player + Discord username; must already be in this event):</p>
                             {newTeamCaptains.map((c, i) => (
                               <div key={i} className="flex gap-2 items-center mb-2">
                                 <select
@@ -704,7 +704,7 @@ const AdminDashboard = () => {
                                       return n;
                                     })
                                   }
-                                  className="px-2 py-1.5 border border-gray-300 rounded text-sm flex-1 max-w-[12rem]"
+                                  className="px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-sm flex-1 max-w-[12rem] bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                                 >
                                   <option value="">Player</option>
                                   {(eventDetails?.players || []).map((p: any) => (
@@ -722,12 +722,12 @@ const AdminDashboard = () => {
                                     })
                                   }
                                   placeholder="Discord username"
-                                  className="px-2 py-1.5 border border-gray-300 rounded text-sm flex-1 max-w-[10rem]"
+                                  className="px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-sm flex-1 max-w-[10rem] bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
                                 />
                                 <button
                                   type="button"
                                   onClick={() => setNewTeamCaptains((prev) => prev.filter((_, j) => j !== i))}
-                                  className="text-red-600 hover:text-red-800"
+                                  className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
                                 >
                                   Remove
                                 </button>
@@ -736,7 +736,7 @@ const AdminDashboard = () => {
                             <button
                               type="button"
                               onClick={() => setNewTeamCaptains((prev) => [...prev, { playerId: '', discordUsername: '' }])}
-                              className="text-sm text-indigo-600 hover:text-indigo-800"
+                              className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300"
                             >
                               + Add captain
                             </button>
@@ -745,18 +745,18 @@ const AdminDashboard = () => {
                       </div>
 
                       {/* Bulk Player Import */}
-                      <div className="bg-gray-50 p-4 rounded-lg">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                      <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg">
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
                           Bulk Import Players
                         </h3>
-                        <p className="text-sm text-gray-600 mb-4">
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                           Paste player names, one per line. Optional format: Name | Team | Notes
                         </p>
                         <textarea
                           value={bulkPlayerText}
                           onChange={(e) => setBulkPlayerText(e.target.value)}
                           placeholder="Player 1&#10;Player 2 | Team A&#10;Player 3 | Team B | Notes here"
-                          className="w-full h-48 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-sm"
+                          className="w-full h-48 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
                         />
                         <button
                           onClick={() => handleBulkImport(selectedEvent.id)}
@@ -765,15 +765,15 @@ const AdminDashboard = () => {
                         >
                           {importing ? 'Importing...' : 'Import Players'}
                         </button>
-                        <p className="text-xs text-gray-500 mt-2">
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                           This will replace all existing players for this event.
                         </p>
                       </div>
 
                       {/* Export Data */}
-                      <div className="bg-white border border-gray-200 p-4 rounded-lg">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-2">Export Event Data</h3>
-                        <p className="text-sm text-gray-600 mb-3">
+                      <div className="bg-white dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 p-4 rounded-lg">
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Export Event Data</h3>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
                           Download all event data including players, teams, picks, and predictions as JSON.
                         </p>
                         <button
@@ -786,9 +786,9 @@ const AdminDashboard = () => {
                       </div>
 
                       {/* Event Info */}
-                      <div className="bg-white border border-gray-200 p-4 rounded-lg">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-2">Event Info</h3>
-                        <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div className="bg-white dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 p-4 rounded-lg">
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Event Info</h3>
+                        <div className="grid grid-cols-2 gap-4 text-sm text-gray-700 dark:text-gray-300">
                           <div>
                             <span className="font-medium">Name:</span> {selectedEvent.name}
                           </div>
@@ -811,7 +811,7 @@ const AdminDashboard = () => {
                         <div className="mt-4">
                           <Link
                             to={`/event/${selectedEvent.eventCode}`}
-                            className="text-indigo-600 hover:text-indigo-800"
+                            className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300"
                           >
                             View Event Page →
                           </Link>
@@ -824,10 +824,10 @@ const AdminDashboard = () => {
 
               {activeTab === 'create-event' && (
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900 mb-4">Create New Event</h2>
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Create New Event</h2>
                   <div className="max-w-2xl space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Event Name *
                       </label>
                       <input
@@ -835,12 +835,12 @@ const AdminDashboard = () => {
                         value={newEventName}
                         onChange={(e) => setNewEventName(e.target.value)}
                         placeholder="My Awesome Draft Event"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Event Code * (3-20 characters, unique)
                       </label>
                       <input
@@ -849,15 +849,15 @@ const AdminDashboard = () => {
                         onChange={(e) => setNewEventCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
                         placeholder="DRAFT2024"
                         maxLength={20}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
                       />
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                         Short identifier for the event URL (e.g. /event/MYCODE). Letters and numbers only.
                       </p>
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Description (optional)
                       </label>
                       <textarea
@@ -865,37 +865,37 @@ const AdminDashboard = () => {
                         onChange={(e) => setNewEventDescription(e.target.value)}
                         placeholder="Event description and rules..."
                         rows={3}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
                       />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                           Draft Deadline (optional)
                         </label>
                         <input
                           type="datetime-local"
                           value={newEventDraftDeadline}
                           onChange={(e) => setNewEventDraftDeadline(e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                         />
-                        <p className="text-xs text-gray-500 mt-1">
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                           When predictions lock
                         </p>
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                           Draft Start Time (optional)
                         </label>
                         <input
                           type="datetime-local"
                           value={newEventDraftStartTime}
                           onChange={(e) => setNewEventDraftStartTime(e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                         />
-                        <p className="text-xs text-gray-500 mt-1">
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                           When live draft begins
                         </p>
                       </div>
