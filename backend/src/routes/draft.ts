@@ -1,7 +1,7 @@
 import express from 'express';
 import { z } from 'zod';
 import prisma from '../db';
-import { authenticate, AuthRequest } from '../middleware/auth';
+import { authenticate, AuthRequest, requireRole } from '../middleware/auth';
 import { getIO } from '../socketManager';
 
 const router = express.Router();
@@ -29,9 +29,13 @@ router.post('/:eventId/submit-order', authenticate, async (req: AuthRequest, res
       return res.status(404).json({ error: 'Event not found' });
     }
 
-    // Check if deadline has passed
+    // Check if deadline has passed OR draft has started
+    const draftStarted = event.status === 'DRAFTING' || event.status === 'PAUSED' || event.status === 'COMPLETED';
     if (event.draftDeadline && new Date() > new Date(event.draftDeadline)) {
       return res.status(400).json({ error: 'Draft deadline has passed' });
+    }
+    if (draftStarted) {
+      return res.status(400).json({ error: 'Draft has already started. Predictions are locked.' });
     }
 
     // Validate all players exist in event
@@ -64,7 +68,7 @@ router.post('/:eventId/submit-order', authenticate, async (req: AuthRequest, res
       data: {
         userId,
         eventId,
-        locked: event.draftDeadline ? new Date() > new Date(event.draftDeadline) : false,
+        locked: draftStarted || (event.draftDeadline ? new Date() > new Date(event.draftDeadline) : false),
         items: {
           create: playerOrder.map((playerId, index) => ({
             playerId,
@@ -227,7 +231,7 @@ router.post('/:eventId/pick', authenticate, async (req: AuthRequest, res) => {
       return res.status(404).json({ error: 'Event not found' });
     }
 
-    if (event.status !== 'DRAFTING') {
+    if (event.status !== 'DRAFTING' && event.status !== 'PAUSED') {
       return res.status(400).json({ error: 'Event is not in drafting status' });
     }
 
@@ -238,15 +242,20 @@ router.post('/:eventId/pick', authenticate, async (req: AuthRequest, res) => {
     const isAdmin = req.userRole === 'ADMIN';
     const isCaptain = event.captainId === req.userId;
 
+    // Admins can make picks for any team, captains only for their assigned team
     if (!isAdmin && !isCaptain) {
-      return res.status(403).json({ error: 'Only captains can make picks' });
+      return res.status(403).json({ error: 'Only captains and admins can make picks' });
     }
 
-    // Check if it's the correct team's turn
-    const currentTeamId = event.draftOrder.teamOrder[event.draftOrder.currentPick];
-    const currentTeam = event.teams.find(t => t.id === currentTeamId);
-    
-    // For MVP, we'll allow captain to pick for any team (can be refined later)
+    // For admins, allow picking for any team; for captains, check if it's their turn
+    let targetTeamId = currentTeamId;
+    if (isAdmin && req.body.teamId) {
+      // Admin can override and pick for a specific team
+      targetTeamId = req.body.teamId;
+    } else if (!isAdmin) {
+      // Captains can only pick when it's their team's turn
+      // (For MVP, we allow captain to pick for current team - can be refined)
+    }
 
     // Check if player exists and is available
     const player = event.players.find(p => p.id === playerId);
@@ -274,7 +283,7 @@ router.post('/:eventId/pick', authenticate, async (req: AuthRequest, res) => {
     const pick = await prisma.draftPick.create({
       data: {
         eventId,
-        teamId: currentTeamId,
+        teamId: targetTeamId,
         playerId,
         round,
         pickNumber,
@@ -512,6 +521,64 @@ router.post('/:eventId/undo', authenticate, async (req: AuthRequest, res) => {
   } catch (error) {
     console.error('Undo pick error:', error);
     res.status(500).json({ error: 'Failed to undo pick' });
+  }
+});
+
+// Pause draft (admin only)
+router.post('/:eventId/pause', authenticate, requireRole('ADMIN'), async (req: AuthRequest, res) => {
+  try {
+    const { eventId } = req.params;
+    const event = await prisma.event.findUnique({ where: { id: eventId } });
+    
+    if (!event) {
+      return res.status(404).json({ error: 'Event not found' });
+    }
+
+    if (event.status !== 'DRAFTING') {
+      return res.status(400).json({ error: 'Event is not in drafting status' });
+    }
+
+    await prisma.event.update({
+      where: { id: eventId },
+      data: { status: 'PAUSED' },
+    });
+
+    const io = getIO();
+    io.to(`event:${eventId}`).emit('draft-paused', { eventId });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Pause draft error:', error);
+    res.status(500).json({ error: 'Failed to pause draft' });
+  }
+});
+
+// Resume draft (admin only)
+router.post('/:eventId/resume', authenticate, requireRole('ADMIN'), async (req: AuthRequest, res) => {
+  try {
+    const { eventId } = req.params;
+    const event = await prisma.event.findUnique({ where: { id: eventId } });
+    
+    if (!event) {
+      return res.status(404).json({ error: 'Event not found' });
+    }
+
+    if (event.status !== 'PAUSED') {
+      return res.status(400).json({ error: 'Event is not paused' });
+    }
+
+    await prisma.event.update({
+      where: { id: eventId },
+      data: { status: 'DRAFTING' },
+    });
+
+    const io = getIO();
+    io.to(`event:${eventId}`).emit('draft-resumed', { eventId });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Resume draft error:', error);
+    res.status(500).json({ error: 'Failed to resume draft' });
   }
 });
 

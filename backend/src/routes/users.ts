@@ -10,8 +10,8 @@ router.get('/', authenticate, requireRole('ADMIN'), async (req, res) => {
     const users = await prisma.user.findMany({
       select: {
         id: true,
-        email: true,
-        name: true,
+        discordId: true,
+        discordUsername: true,
         role: true,
         createdAt: true,
       },
@@ -42,8 +42,8 @@ router.put('/:id/role', authenticate, requireRole('ADMIN'), async (req: AuthRequ
       data: { role },
       select: {
         id: true,
-        email: true,
-        name: true,
+        discordId: true,
+        discordUsername: true,
         role: true,
       },
     });

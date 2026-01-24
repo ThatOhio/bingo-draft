@@ -35,7 +35,28 @@ npm run db:migrate
 
 This will create all the necessary database tables.
 
-### 4. Create Your First Admin User
+### 4. Seed Test Users (optional, for local development)
+
+To populate the DB with test users (captains, participants) so you can exercise the Admin Dashboard and run mock events without multiple real Discord accounts:
+
+```bash
+cd backend
+npm run db:seed
+```
+
+This creates 1 admin, 2 captains, and 8 participants with fake `SEED_*` discordIds. They **cannot log in** via Discord; they only exist in the DB so you can:
+- See and assign roles in Admin → Users
+- Run a mock draft: log in as your real account, create an event (you become captain), add players/teams, then Initialize Draft
+
+To also create a **mock event** (MOCK2024) with players and teams:
+
+```bash
+npm run db:seed:event
+```
+
+Then in Admin → Manage Event, select "Mock Draft Event", set status to OPEN, add teams if needed, and use "Initialize Draft".
+
+### 5. Create Your First Admin User
 
 You have two options:
 
@@ -63,7 +84,7 @@ VALUES (
 );
 ```
 
-### 5. Start Development Servers
+### 6. Start Development Servers
 
 From the root directory:
 ```bash
@@ -81,7 +102,7 @@ cd frontend
 npm run dev
 ```
 
-### 6. Access the Application
+### 7. Access the Application
 
 - Frontend: http://localhost:5173
 - Backend API: http://localhost:3001

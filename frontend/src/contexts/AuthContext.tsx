@@ -3,16 +3,15 @@ import axios from 'axios';
 
 interface User {
   id: string;
-  email: string;
-  name: string;
+  discordId: string;
+  discordUsername: string;
   role: string;
 }
 
 interface AuthContextType {
   user: User | null;
   token: string | null;
-  login: (email: string, password: string, eventCode?: string) => Promise<void>;
-  register: (email: string, name: string, password: string, eventCode?: string) => Promise<void>;
+  loginWithDiscord: (eventCode?: string) => void;
   logout: () => void;
   loading: boolean;
 }
@@ -49,31 +48,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const login = async (email: string, password: string, eventCode?: string) => {
-    const response = await axios.post(`${API_URL}/api/auth/login`, {
-      email,
-      password,
-      eventCode,
+  const loginWithDiscord = (eventCode?: string) => {
+    // Redirect to backend Discord OAuth URL
+    const params = new URLSearchParams();
+    if (eventCode) {
+      params.set('eventCode', eventCode);
+    }
+    axios.get(`${API_URL}/api/auth/discord/url?${params.toString()}`).then((response) => {
+      window.location.href = response.data.url;
+    }).catch((error) => {
+      console.error('Failed to get Discord OAuth URL:', error);
     });
-    const { token: newToken, user: newUser } = response.data;
-    setToken(newToken);
-    setUser(newUser);
-    localStorage.setItem('token', newToken);
-    axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
-  };
-
-  const register = async (email: string, name: string, password: string, eventCode?: string) => {
-    const response = await axios.post(`${API_URL}/api/auth/register`, {
-      email,
-      name,
-      password,
-      eventCode,
-    });
-    const { token: newToken, user: newUser } = response.data;
-    setToken(newToken);
-    setUser(newUser);
-    localStorage.setItem('token', newToken);
-    axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
   };
 
   const logout = () => {
@@ -84,7 +69,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, register, logout, loading }}>
+    <AuthContext.Provider value={{ user, token, loginWithDiscord, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );

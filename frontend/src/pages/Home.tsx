@@ -13,7 +13,7 @@ interface Event {
   draftStartTime: string | null;
   captain: {
     id: string;
-    name: string;
+    discordUsername: string;
   };
   _count: {
     participants: number;
@@ -62,7 +62,7 @@ const Home = () => {
             <div className="flex items-center space-x-4">
               {user ? (
                 <>
-                  <span className="text-gray-700">Welcome, {user.name}</span>
+                  <span className="text-gray-700">Welcome, {user.discordUsername}</span>
                   {user.role === 'ADMIN' && (
                     <Link
                       to="/admin"
@@ -85,12 +85,6 @@ const Home = () => {
                 <>
                   <Link to="/login" className="text-gray-600 hover:text-gray-800">
                     Login
-                  </Link>
-                  <Link
-                    to="/register"
-                    className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700"
-                  >
-                    Sign Up
                   </Link>
                 </>
               )}

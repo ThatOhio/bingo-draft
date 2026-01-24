@@ -28,6 +28,11 @@ router.get('/:eventId/rankings', async (req, res) => {
       return res.status(404).json({ error: 'Event not found' });
     }
 
+    // Only show rankings if draft is completed
+    if (event.status !== 'COMPLETED') {
+      return res.json({ rankings: [], message: 'Rankings will be available after the draft completes' });
+    }
+
     // Get all submissions
     const submissions = await prisma.draftOrderSubmission.findMany({
       where: { eventId },
@@ -35,8 +40,7 @@ router.get('/:eventId/rankings', async (req, res) => {
         user: {
           select: {
             id: true,
-            name: true,
-            email: true,
+            discordUsername: true,
           },
         },
         items: {
@@ -99,8 +103,7 @@ router.get('/:eventId/rankings', async (req, res) => {
 
       return {
         userId: submission.user.id,
-        userName: submission.user.name,
-        userEmail: submission.user.email,
+        userName: submission.user.discordUsername,
         exactMatches,
         closeMatches,
         score,
@@ -305,8 +308,7 @@ router.get('/:eventId/export', authenticate, async (req: AuthRequest, res) => {
             user: {
               select: {
                 id: true,
-                name: true,
-                email: true,
+                discordUsername: true,
               },
             },
             items: {

@@ -54,6 +54,7 @@ const LiveDraft = () => {
   const [draftState, setDraftState] = useState<DraftState | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
+  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null); // For admin override
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
@@ -74,9 +75,23 @@ const LiveDraft = () => {
         setDraftState(data.state);
       });
 
+      socket.on('draft-paused', () => {
+        if (event) {
+          fetchEvent(); // Refresh event status
+        }
+      });
+
+      socket.on('draft-resumed', () => {
+        if (event) {
+          fetchEvent(); // Refresh event status
+        }
+      });
+
       return () => {
         socket.off('draft-update');
         socket.off('pick-made');
+        socket.off('draft-paused');
+        socket.off('draft-resumed');
       };
     }
   }, [event, socket, connectToEvent]);
@@ -117,18 +132,43 @@ const LiveDraft = () => {
     const isCaptain = event.captainId === user?.id;
 
     if (!isAdmin && !isCaptain) {
-      alert('Only captains can make picks');
+      alert('Only captains and admins can make picks');
       return;
     }
 
     try {
-      await axios.post(`${API_URL}/api/draft/${event.id}/pick`, {
-        playerId: selectedPlayer,
-      });
+      const payload: any = { playerId: selectedPlayer };
+      // If admin and team override selected, include it
+      if (isAdmin && selectedTeamId) {
+        payload.teamId = selectedTeamId;
+      }
+
+      await axios.post(`${API_URL}/api/draft/${event.id}/pick`, payload);
       setSelectedPlayer(null);
+      setSelectedTeamId(null);
       // State will update via socket or polling
     } catch (error: any) {
       alert(error.response?.data?.error || 'Failed to make pick');
+    }
+  };
+
+  const handlePause = async () => {
+    if (!event) return;
+    try {
+      await axios.post(`${API_URL}/api/draft/${event.id}/pause`);
+      fetchEvent();
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Failed to pause draft');
+    }
+  };
+
+  const handleResume = async () => {
+    if (!event) return;
+    try {
+      await axios.post(`${API_URL}/api/draft/${event.id}/resume`);
+      fetchEvent();
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Failed to resume draft');
     }
   };
 
@@ -167,7 +207,9 @@ const LiveDraft = () => {
     player.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const canMakePick = user && (user.role === 'ADMIN' || event.captainId === user.id);
+  const canMakePick = user && (user.role === 'ADMIN' || event?.captainId === user.id);
+  const isAdmin = user?.role === 'ADMIN';
+  const canPauseResume = isAdmin && event && (event.status === 'DRAFTING' || event.status === 'PAUSED');
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -184,12 +226,34 @@ const LiveDraft = () => {
               <h1 className="text-xl font-bold text-gray-900">Live Draft</h1>
             </div>
             {canMakePick && (
-              <button
-                onClick={handleUndo}
-                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-              >
-                Undo Last Pick
-              </button>
+              <div className="flex gap-2">
+                {canPauseResume && (
+                  <>
+                    {event.status === 'DRAFTING' && (
+                      <button
+                        onClick={handlePause}
+                        className="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700"
+                      >
+                        Pause Draft
+                      </button>
+                    )}
+                    {event.status === 'PAUSED' && (
+                      <button
+                        onClick={handleResume}
+                        className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                      >
+                        Resume Draft
+                      </button>
+                    )}
+                  </>
+                )}
+                <button
+                  onClick={handleUndo}
+                  className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                >
+                  Undo Last Pick
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -207,6 +271,11 @@ const LiveDraft = () => {
                   Pick #{draftState.draftOrder ? draftState.draftOrder.currentPick + 1 : 0} of{' '}
                   {event.players.length}
                 </p>
+                {event.status === 'PAUSED' && (
+                  <div className="mt-2 px-3 py-1 bg-yellow-100 text-yellow-800 rounded text-sm font-medium">
+                    ⏸ Draft Paused
+                  </div>
+                )}
               </div>
               {draftState.currentTeam && (
                 <div className="text-right">
@@ -254,12 +323,36 @@ const LiveDraft = () => {
                   ))}
                 </div>
                 {canMakePick && selectedPlayer && (
-                  <button
-                    onClick={handleMakePick}
-                    className="mt-4 w-full px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-                  >
-                    Make Pick
-                  </button>
+                  <div className="mt-4 space-y-3">
+                    {isAdmin && draftState.teams.length > 0 && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Override Team (Admin Only)
+                        </label>
+                        <select
+                          value={selectedTeamId || ''}
+                          onChange={(e) => setSelectedTeamId(e.target.value || null)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        >
+                          <option value="">Use Current Team</option>
+                          {draftState.teams.map((team) => (
+                            <option key={team.id} value={team.id}>
+                              {team.name}
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Leave as "Use Current Team" to follow normal draft order
+                        </p>
+                      </div>
+                    )}
+                    <button
+                      onClick={handleMakePick}
+                      className="w-full px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+                    >
+                      Make Pick
+                    </button>
+                  </div>
                 )}
               </div>
             </div>

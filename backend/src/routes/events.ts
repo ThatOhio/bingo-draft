@@ -16,7 +16,7 @@ const createEventSchema = z.object({
 const updateEventSchema = z.object({
   name: z.string().min(1).optional(),
   description: z.string().optional(),
-  status: z.enum(['PLANNED', 'OPEN', 'DRAFTING', 'COMPLETED', 'CLOSED']).optional(),
+  status: z.enum(['PLANNED', 'OPEN', 'DRAFTING', 'PAUSED', 'COMPLETED', 'CLOSED']).optional(),
   draftDeadline: z.string().datetime().optional(),
   draftStartTime: z.string().datetime().optional(),
 });
@@ -29,8 +29,7 @@ router.get('/', async (req, res) => {
         captain: {
           select: {
             id: true,
-            name: true,
-            email: true,
+            discordUsername: true,
           },
         },
         _count: {
@@ -63,8 +62,7 @@ router.get('/code/:eventCode', async (req, res) => {
         captain: {
           select: {
             id: true,
-            name: true,
-            email: true,
+            discordUsername: true,
           },
         },
         players: {
@@ -106,8 +104,7 @@ router.get('/:id', async (req, res) => {
         captain: {
           select: {
             id: true,
-            name: true,
-            email: true,
+            discordUsername: true,
           },
         },
         players: {
@@ -167,8 +164,7 @@ router.post('/', authenticate, requireRole('ADMIN', 'CAPTAIN'), async (req: Auth
         captain: {
           select: {
             id: true,
-            name: true,
-            email: true,
+            discordUsername: true,
           },
         },
       },
@@ -217,8 +213,7 @@ router.put('/:id', authenticate, async (req: AuthRequest, res) => {
         captain: {
           select: {
             id: true,
-            name: true,
-            email: true,
+            discordUsername: true,
           },
         },
       },
@@ -231,6 +226,67 @@ router.put('/:id', authenticate, async (req: AuthRequest, res) => {
     }
     console.error('Update event error:', error);
     res.status(500).json({ error: 'Failed to update event' });
+  }
+});
+
+// Bulk import players from text (pasteable list)
+router.post('/:id/players/bulk-import', authenticate, async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+    const { text } = req.body; // Text with one player per line
+
+    if (!text || typeof text !== 'string') {
+      return res.status(400).json({ error: 'Text content is required' });
+    }
+
+    // Check permissions
+    const event = await prisma.event.findUnique({
+      where: { id },
+    });
+
+    if (!event) {
+      return res.status(404).json({ error: 'Event not found' });
+    }
+
+    const isAdmin = req.userRole === 'ADMIN';
+    const isCaptain = event.captainId === req.userId;
+
+    if (!isAdmin && !isCaptain) {
+      return res.status(403).json({ error: 'Insufficient permissions' });
+    }
+
+    // Parse text: one player per line, optionally with format "Name | Position | Team"
+    const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+    const players = lines.map(line => {
+      const parts = line.split('|').map(p => p.trim());
+      return {
+        name: parts[0] || line.trim(),
+        position: parts[1] || null,
+        team: parts[2] || null,
+        notes: parts[3] || null,
+      };
+    });
+
+    // Delete existing players
+    await prisma.player.deleteMany({
+      where: { eventId: id },
+    });
+
+    // Create new players
+    const createdPlayers = await prisma.player.createMany({
+      data: players.map((p) => ({
+        eventId: id,
+        name: p.name,
+        position: p.position || null,
+        team: p.team || null,
+        notes: p.notes || null,
+      })),
+    });
+
+    res.json({ count: createdPlayers.count, players: createdPlayers });
+  } catch (error) {
+    console.error('Bulk import players error:', error);
+    res.status(500).json({ error: 'Failed to bulk import players' });
   }
 });
 

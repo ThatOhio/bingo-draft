@@ -13,7 +13,7 @@ interface Event {
   draftStartTime: string | null;
   captain: {
     id: string;
-    name: string;
+    discordUsername: string;
   };
   players: Array<{ id: string; name: string; position: string | null; team: string | null }>;
   teams: Array<{ id: string; name: string }>;
@@ -98,7 +98,7 @@ const EventPage = () => {
             </div>
             {user && (
               <div className="flex items-center space-x-4">
-                <span className="text-gray-700">{user.name}</span>
+                <span className="text-gray-700">{user.discordUsername}</span>
               </div>
             )}
           </div>

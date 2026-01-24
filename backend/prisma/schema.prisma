@@ -20,18 +20,18 @@ enum EventStatus {
   PLANNED
   OPEN
   DRAFTING
+  PAUSED
   COMPLETED
   CLOSED
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String
-  password  String
-  role      UserRole @default(PARTICIPANT)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String   @id @default(cuid())
+  discordId     String   @unique // Discord user ID
+  discordUsername String // Discord username (display name)
+  role          UserRole @default(PARTICIPANT)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   // Relations
   eventsAsCaptain    Event[]           @relation("EventCaptain")

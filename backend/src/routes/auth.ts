@@ -1,5 +1,5 @@
 import express from 'express';
-import bcrypt from 'bcryptjs';
+import axios from 'axios';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import prisma from '../db';
@@ -7,157 +7,102 @@ import { JWT_SECRET } from '../middleware/auth';
 
 const router = express.Router();
 
-const registerSchema = z.object({
-  email: z.string().email(),
-  name: z.string().min(1),
-  password: z.string().min(6),
-  eventCode: z.string().optional(),
-});
+const DISCORD_CLIENT_ID = process.env.DISCORD_CLIENT_ID || '';
+const DISCORD_CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET || '';
+const DISCORD_REDIRECT_URI = process.env.DISCORD_REDIRECT_URI || 'http://localhost:3001/api/auth/discord/callback';
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 
-const loginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(1),
-  eventCode: z.string().optional(),
-});
-
-// Register
-router.post('/register', async (req, res) => {
+// Discord OAuth callback
+router.get('/discord/callback', async (req, res) => {
   try {
-    const { email, name, password, eventCode } = registerSchema.parse(req.body);
+    const { code, state } = req.query;
 
-    // Check if user exists
-    const existingUser = await prisma.user.findUnique({
-      where: { email },
-    });
-
-    if (existingUser) {
-      return res.status(400).json({ error: 'User already exists' });
+    if (!code) {
+      return res.redirect(`${FRONTEND_URL}/login?error=no_code`);
     }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Create user
-    const user = await prisma.user.create({
-      data: {
-        email,
-        name,
-        password: hashedPassword,
-        role: 'PARTICIPANT',
-      },
-    });
-
-    // If eventCode provided, add user as participant
-    if (eventCode) {
-      const event = await prisma.event.findUnique({
-        where: { eventCode },
-      });
-
-      if (event) {
-        await prisma.eventParticipant.create({
-          data: {
-            userId: user.id,
-            eventId: event.id,
-          },
-        });
+    // Exchange code for access token
+    const tokenResponse = await axios.post(
+      'https://discord.com/api/oauth2/token',
+      new URLSearchParams({
+        client_id: DISCORD_CLIENT_ID,
+        client_secret: DISCORD_CLIENT_SECRET,
+        grant_type: 'authorization_code',
+        code: code as string,
+        redirect_uri: DISCORD_REDIRECT_URI,
+      }),
+      {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
       }
-    }
-
-    // Generate token
-    const token = jwt.sign(
-      { userId: user.id, role: user.role },
-      JWT_SECRET,
-      { expiresIn: '7d' }
     );
 
-    res.json({
-      token,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
+    const { access_token } = tokenResponse.data;
+
+    // Get user info from Discord
+    const userResponse = await axios.get('https://discord.com/api/users/@me', {
+      headers: {
+        Authorization: `Bearer ${access_token}`,
       },
     });
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: error.errors });
-    }
-    console.error('Registration error:', error);
-    res.status(500).json({ error: 'Registration failed' });
-  }
-});
 
-// Login
-router.post('/login', async (req, res) => {
-  try {
-    const { email, password, eventCode } = loginSchema.parse(req.body);
+    const discordUser = userResponse.data;
+    const discordId = discordUser.id;
+    const discordUsername = discordUser.username; // or global_name if preferred
 
-    // Find user
-    const user = await prisma.user.findUnique({
-      where: { email },
+    // Find or create user
+    let user = await prisma.user.findUnique({
+      where: { discordId },
     });
 
     if (!user) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-
-    // Verify password
-    const validPassword = await bcrypt.compare(password, user.password);
-    if (!validPassword) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-
-    // If eventCode provided, add user as participant if not already
-    if (eventCode) {
-      const event = await prisma.event.findUnique({
-        where: { eventCode },
+      user = await prisma.user.create({
+        data: {
+          discordId,
+          discordUsername,
+          role: 'PARTICIPANT',
+        },
       });
-
-      if (event) {
-        const existingParticipant = await prisma.eventParticipant.findUnique({
-          where: {
-            userId_eventId: {
-              userId: user.id,
-              eventId: event.id,
-            },
-          },
-        });
-
-        if (!existingParticipant) {
-          await prisma.eventParticipant.create({
-            data: {
-              userId: user.id,
-              eventId: event.id,
-            },
-          });
-        }
-      }
+    } else {
+      // Update username in case it changed
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: { discordUsername },
+      });
     }
 
-    // Generate token
+    // Generate JWT token
     const token = jwt.sign(
       { userId: user.id, role: user.role },
       JWT_SECRET,
       { expiresIn: '7d' }
     );
 
-    res.json({
-      token,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-      },
-    });
+    // Redirect to frontend with token
+    res.redirect(`${FRONTEND_URL}/auth/callback?token=${token}`);
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: error.errors });
-    }
-    console.error('Login error:', error);
-    res.status(500).json({ error: 'Login failed' });
+    console.error('Discord OAuth error:', error);
+    res.redirect(`${FRONTEND_URL}/login?error=oauth_failed`);
   }
+});
+
+// Get Discord OAuth URL
+router.get('/discord/url', (req, res) => {
+  const eventCode = req.query.eventCode as string | undefined;
+  
+  const state = eventCode ? Buffer.from(JSON.stringify({ eventCode })).toString('base64') : undefined;
+  
+  const params = new URLSearchParams({
+    client_id: DISCORD_CLIENT_ID,
+    redirect_uri: DISCORD_REDIRECT_URI,
+    response_type: 'code',
+    scope: 'identify',
+    ...(state && { state }),
+  });
+
+  const discordAuthUrl = `https://discord.com/api/oauth2/authorize?${params.toString()}`;
+  res.json({ url: discordAuthUrl });
 });
 
 // Get current user
@@ -173,8 +118,8 @@ router.get('/me', async (req, res) => {
       where: { id: decoded.userId },
       select: {
         id: true,
-        email: true,
-        name: true,
+        discordId: true,
+        discordUsername: true,
         role: true,
       },
     });
