@@ -484,12 +484,12 @@ const AdminDashboard = () => {
                           Bulk Import Players
                         </h3>
                         <p className="text-sm text-gray-600 mb-4">
-                          Paste player names, one per line. Optional format: Name | Position | Team | Notes
+                          Paste player names, one per line. Optional format: Name | Team | Notes
                         </p>
                         <textarea
                           value={bulkPlayerText}
                           onChange={(e) => setBulkPlayerText(e.target.value)}
-                          placeholder="Player 1&#10;Player 2 | QB | Team A&#10;Player 3 | RB | Team B | Notes here"
+                          placeholder="Player 1&#10;Player 2 | Team A&#10;Player 3 | Team B | Notes here"
                           className="w-full h-48 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-sm"
                         />
                         <button

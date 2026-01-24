@@ -56,6 +56,13 @@ npm run db:seed:event
 
 Then in Admin → Manage Event, select "Mock Draft Event", set status to OPEN, add teams if needed, and use "Initialize Draft".
 
+To reset and re-seed a fresh mock event (clears all events, then seeds users + event):
+
+```bash
+npm run db:clear-events
+npm run db:seed:event
+```
+
 ### 5. Create Your First Admin User
 
 You have two options:
@@ -129,8 +136,8 @@ npm run dev
      -H "Authorization: Bearer YOUR_TOKEN" \
      -d '{
        "players": [
-         {"name": "Player 1", "position": "QB", "team": "Team A"},
-         {"name": "Player 2", "position": "RB", "team": "Team B"}
+         {"name": "Player 1", "team": "Team A"},
+         {"name": "Player 2", "team": "Team B"}
        ]
      }'
    ```

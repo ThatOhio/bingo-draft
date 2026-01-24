@@ -10,8 +10,9 @@
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",
     "db:studio": "prisma studio",
-    "db:seed": "tsx scripts/seed-users.ts",
-    "db:seed:event": "tsx scripts/seed-users.ts --with-event"
+    "db:seed": "prisma generate && tsx scripts/seed-users.ts",
+    "db:seed:event": "prisma generate && tsx scripts/seed-users.ts --with-event",
+    "db:clear-events": "tsx scripts/clear-events.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.7.1",

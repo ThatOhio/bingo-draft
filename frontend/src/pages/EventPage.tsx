@@ -15,7 +15,7 @@ interface Event {
     id: string;
     discordUsername: string;
   };
-  players: Array<{ id: string; name: string; position: string | null; team: string | null }>;
+  players: Array<{ id: string; name: string; team: string | null }>;
   teams: Array<{ id: string; name: string }>;
   _count: {
     participants: number;

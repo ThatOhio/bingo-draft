@@ -255,15 +255,14 @@ router.post('/:id/players/bulk-import', authenticate, async (req: AuthRequest, r
       return res.status(403).json({ error: 'Insufficient permissions' });
     }
 
-    // Parse text: one player per line, optionally with format "Name | Position | Team"
+    // Parse text: one player per line, optionally with format "Name | Team | Notes"
     const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
     const players = lines.map(line => {
       const parts = line.split('|').map(p => p.trim());
       return {
         name: parts[0] || line.trim(),
-        position: parts[1] || null,
-        team: parts[2] || null,
-        notes: parts[3] || null,
+        team: parts[1] || null,
+        notes: parts[2] || null,
       };
     });
 
@@ -277,7 +276,6 @@ router.post('/:id/players/bulk-import', authenticate, async (req: AuthRequest, r
       data: players.map((p) => ({
         eventId: id,
         name: p.name,
-        position: p.position || null,
         team: p.team || null,
         notes: p.notes || null,
       })),
@@ -326,7 +324,6 @@ router.post('/:id/players/import', authenticate, async (req: AuthRequest, res) =
       data: players.map((p: any) => ({
         eventId: id,
         name: p.name,
-        position: p.position || null,
         team: p.team || null,
         notes: p.notes || null,
       })),

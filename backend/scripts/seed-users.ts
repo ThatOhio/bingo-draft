@@ -7,7 +7,9 @@
  *   - 8 PARTICIPANTS (seed)
  *
  * Use --with-event to also create a mock event with a seed captain, players, and teams.
- * Run from backend: npx tsx scripts/seed-users.ts [--with-event]
+ * Run from backend: npm run db:seed or npm run db:seed:event
+ *
+ * To get a fresh mock event: npm run db:clear-events then npm run db:seed:event
  *
  * Note: Seed users use fake discordIds (SEED_*) and cannot log in via Discord OAuth.
  * To run a mock draft: log in as your real admin/captain account, create or use the
@@ -33,18 +35,18 @@ const SEED_USERS = [
 
 // Mock event: sample players (generic names for a fantasy-style draft)
 const MOCK_PLAYERS = [
-  { name: 'Player Alpha', position: 'QB', team: 'Team A' },
-  { name: 'Player Bravo', position: 'RB', team: 'Team A' },
-  { name: 'Player Charlie', position: 'WR', team: 'Team B' },
-  { name: 'Player Delta', position: 'WR', team: 'Team B' },
-  { name: 'Player Echo', position: 'TE', team: 'Team C' },
-  { name: 'Player Foxtrot', position: 'QB', team: 'Team C' },
-  { name: 'Player Golf', position: 'RB', team: 'Team D' },
-  { name: 'Player Hotel', position: 'WR', team: 'Team D' },
-  { name: 'Player India', position: 'RB', team: 'Team A' },
-  { name: 'Player Juliet', position: 'WR', team: 'Team B' },
-  { name: 'Player Kilo', position: 'TE', team: 'Team C' },
-  { name: 'Player Lima', position: 'QB', team: 'Team D' },
+  { name: 'Player Alpha', team: 'Team A' },
+  { name: 'Player Bravo', team: 'Team A' },
+  { name: 'Player Charlie', team: 'Team B' },
+  { name: 'Player Delta', team: 'Team B' },
+  { name: 'Player Echo', team: 'Team C' },
+  { name: 'Player Foxtrot', team: 'Team C' },
+  { name: 'Player Golf', team: 'Team D' },
+  { name: 'Player Hotel', team: 'Team D' },
+  { name: 'Player India', team: 'Team A' },
+  { name: 'Player Juliet', team: 'Team B' },
+  { name: 'Player Kilo', team: 'Team C' },
+  { name: 'Player Lima', team: 'Team D' },
 ];
 
 const MOCK_TEAMS = ['Team A', 'Team B', 'Team C', 'Team D'];
@@ -104,7 +106,6 @@ async function seedEvent() {
       data: {
         eventId: event.id,
         name: p.name,
-        position: p.position,
         team: p.team,
       },
     });

@@ -64,7 +64,6 @@ model Event {
 model Player {
   id          String   @id @default(cuid())
   name        String
-  position    String?
   team        String?
   notes       String?
   eventId     String

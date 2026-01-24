@@ -247,7 +247,10 @@ router.post('/:eventId/pick', authenticate, async (req: AuthRequest, res) => {
       return res.status(403).json({ error: 'Only captains and admins can make picks' });
     }
 
-    // For admins, allow picking for any team; for captains, check if it's their turn
+    // Team whose turn it is (from snake order)
+    const currentTeamId = event.draftOrder.teamOrder[event.draftOrder.currentPick];
+
+    // For admins, allow picking for any team; for captains, use current team
     let targetTeamId = currentTeamId;
     if (isAdmin && req.body.teamId) {
       // Admin can override and pick for a specific team
@@ -418,6 +421,7 @@ router.get('/:eventId/state', async (req, res) => {
             pickNumber: 'asc',
           },
         },
+        players: true,
       },
     });
 
@@ -449,9 +453,10 @@ router.post('/:eventId/undo', authenticate, async (req: AuthRequest, res) => {
   try {
     const { eventId } = req.params;
 
-    // Check permissions
+    // Check permissions (include teams for totalTeams in draft-order rollback)
     const event = await prisma.event.findUnique({
       where: { id: eventId },
+      include: { teams: true },
     });
 
     if (!event) {

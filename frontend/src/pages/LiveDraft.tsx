@@ -7,7 +7,6 @@ import { useAuth } from '../contexts/AuthContext';
 interface Player {
   id: string;
   name: string;
-  position: string | null;
   team: string | null;
 }
 
@@ -312,12 +311,8 @@ const LiveDraft = () => {
                       onClick={() => canMakePick && setSelectedPlayer(player.id)}
                     >
                       <div className="font-medium text-gray-900">{player.name}</div>
-                      {(player.position || player.team) && (
-                        <div className="text-sm text-gray-500">
-                          {player.position && <span>{player.position}</span>}
-                          {player.position && player.team && <span> • </span>}
-                          {player.team && <span>{player.team}</span>}
-                        </div>
+                      {player.team && (
+                        <div className="text-sm text-gray-500">{player.team}</div>
                       )}
                     </div>
                   ))}
@@ -359,22 +354,87 @@ const LiveDraft = () => {
 
             {/* Teams & Recent Picks */}
             <div className="lg:col-span-2">
-              <div className="grid md:grid-cols-2 gap-6 mb-6">
-                {draftState.teams.map((team) => (
-                  <div key={team.id} className="bg-white shadow rounded-lg p-4">
-                    <h4 className="font-semibold text-gray-900 mb-2">{team.name}</h4>
-                    <div className="space-y-1">
-                      {team.draftPicks.map((pick) => (
-                        <div key={pick.id} className="text-sm text-gray-600">
-                          #{pick.pickNumber} - {pick.player.name}
-                        </div>
-                      ))}
-                      {team.draftPicks.length === 0 && (
-                        <div className="text-sm text-gray-400">No picks yet</div>
-                      )}
-                    </div>
-                  </div>
-                ))}
+              {/* Draft Grid: teams as columns, rounds as rows */}
+              <div className="bg-white shadow rounded-lg p-4 mb-6 overflow-x-auto">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Draft Board</h3>
+                <table className="w-full border-collapse min-w-[400px]">
+                  <thead>
+                    <tr>
+                      <th className="text-left p-2 border-b border-gray-200 font-semibold text-gray-700 sticky left-0 bg-white z-10 min-w-[4rem]">
+                        Round
+                      </th>
+                      {(draftState.draftOrder
+                        ? draftState.draftOrder.teamOrder.slice(0, draftState.teams.length)
+                        : draftState.teams.map((t) => t.id)
+                      ).map((teamId) => {
+                        const team = draftState.teams.find((t) => t.id === teamId);
+                        const isCurrentTeam =
+                          draftState.draftOrder &&
+                          draftState.currentTeam?.id === teamId &&
+                          (draftState.draftOrder.currentPick ?? 0) < (event?.players?.length ?? 0);
+                        return team ? (
+                          <th
+                            key={team.id}
+                            className={`text-left p-2 border-b border-gray-200 font-semibold min-w-[7rem] ${
+                              isCurrentTeam
+                                ? 'bg-amber-100 text-amber-900 border-amber-300'
+                                : 'text-gray-700'
+                            }`}
+                          >
+                            {team.name}
+                          </th>
+                        ) : null;
+                      })}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Array.from(
+                      {
+                        length: Math.ceil(
+                          (event?.players?.length ?? 0) / (draftState.teams.length || 1)
+                        ) || 1,
+                      },
+                      (_, i) => i + 1
+                    ).map((round) => (
+                      <tr key={round} className="hover:bg-gray-50/50">
+                        <td className="p-2 border-b border-gray-100 font-medium text-gray-600 sticky left-0 bg-white z-10">
+                          {round}
+                        </td>
+                        {(draftState.draftOrder
+                          ? draftState.draftOrder.teamOrder.slice(0, draftState.teams.length)
+                          : draftState.teams.map((t) => t.id)
+                        ).map((teamId) => {
+                          const team = draftState.teams.find((t) => t.id === teamId);
+                          if (!team) return null;
+                          const pick = team.draftPicks.find((p) => p.round === round);
+                          const isCurrentCell =
+                            draftState.draftOrder &&
+                            (draftState.draftOrder.currentPick ?? 0) < (event?.players?.length ?? 0) &&
+                            draftState.draftOrder.currentRound === round &&
+                            draftState.draftOrder.teamOrder[draftState.draftOrder.currentPick] === teamId;
+                          return (
+                            <td
+                              key={team.id}
+                              className={`p-2 border-b border-gray-100 align-top ${
+                                isCurrentCell
+                                  ? 'bg-amber-200/80 ring-2 ring-amber-500 ring-inset'
+                                  : 'bg-white'
+                              }`}
+                            >
+                              {pick ? (
+                                <span className="text-gray-900">{pick.player.name}</span>
+                              ) : isCurrentCell ? (
+                                <span className="text-amber-700 text-sm italic">On the clock</span>
+                              ) : (
+                                <span className="text-gray-300">—</span>
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
 
               <div className="bg-white shadow rounded-lg p-6">
