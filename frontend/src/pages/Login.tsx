@@ -1,13 +1,9 @@
-import { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { useState } from 'react';
+import { useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import axios from 'axios';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 const Login = () => {
   const { loginWithDiscord } = useAuth();
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const eventCode = searchParams.get('eventCode');
   const error = searchParams.get('error');

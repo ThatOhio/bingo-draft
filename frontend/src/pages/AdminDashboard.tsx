@@ -4,6 +4,7 @@ import axios from 'axios';
 import {
   DndContext,
   closestCenter,
+  DragEndEvent,
   PointerSensor,
   useSensor,
   useSensors,
@@ -564,11 +565,11 @@ const AdminDashboard = () => {
                                 ? teamOrderIds
                                 : getOrderedTeamIds(eventDetails);
                             const teamById = (id: string) => eventDetails.teams.find((t: any) => t.id === id);
-                            const handleTeamOrderDragEnd = (e: { active: { id: string }; over: { id: string } | null }) => {
+                            const handleTeamOrderDragEnd = (e: DragEndEvent) => {
                               const { active, over } = e;
                               if (!over || active.id === over.id) return;
-                              const o = displayOrder.indexOf(active.id as string);
-                              const n = displayOrder.indexOf(over.id as string);
+                              const o = displayOrder.indexOf(String(active.id));
+                              const n = displayOrder.indexOf(String(over.id));
                               if (o === -1 || n === -1) return;
                               setTeamOrderIds(arrayMove(displayOrder, o, n));
                             };
