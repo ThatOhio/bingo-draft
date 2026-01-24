@@ -6,7 +6,9 @@ WORKDIR /app
 COPY package*.json ./
 COPY prisma ./prisma/
 
-RUN npm ci
+# npm install works with or without package-lock.json. Workspace installs don't create
+# lockfiles in backend/; use npm install here so Docker builds succeed.
+RUN npm install
 
 RUN npx prisma generate
 

@@ -8,7 +8,9 @@ ENV VITE_API_URL=$VITE_API_URL
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci
+# npm install works with or without package-lock.json. Workspace installs don't create
+# lockfiles in frontend/; use npm install here so Docker builds succeed.
+RUN npm install
 
 COPY . .
 RUN npm run build
