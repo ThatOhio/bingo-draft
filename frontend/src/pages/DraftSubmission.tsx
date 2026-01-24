@@ -4,12 +4,15 @@ import axios from 'axios';
 import {
   DndContext,
   DragEndEvent,
+  closestCenter,
   useDraggable,
   useDroppable,
   PointerSensor,
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
+import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { useAuth } from '../contexts/AuthContext';
 
 interface Player {
@@ -33,6 +36,7 @@ interface Submission {
   id: string;
   submittedAt: string;
   locked: boolean;
+  teamOrder?: string[];
   items: SubmissionItem[];
 }
 
@@ -188,12 +192,45 @@ function PlayerPoolItem({ player, disabled }: { player: Player; disabled?: boole
   );
 }
 
+// --- Sortable team row for "Predict team draft order" ---
+function SortableTeamRowPrediction({
+  id,
+  team,
+  index,
+  disabled,
+}: {
+  id: string;
+  team: { id: string; name: string } | undefined;
+  index: number;
+  disabled?: boolean;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id,
+    disabled,
+  });
+  if (!team) return null;
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={`flex items-center gap-2 py-1.5 px-3 rounded border border-gray-200 bg-gray-50 ${isDragging ? 'opacity-70 shadow-lg z-10' : ''} ${disabled ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'}`}
+      {...(disabled ? {} : { ...attributes, ...listeners })}
+    >
+      {!disabled && <span className="text-gray-400 select-none" aria-hidden>⋮⋮</span>}
+      <span className="text-sm font-medium text-gray-500">#{index}</span>
+      <span className="font-medium text-gray-900">{team.name}</span>
+    </div>
+  );
+}
+
 const DraftSubmission = () => {
   const { eventCode } = useParams<{ eventCode: string }>();
   useAuth();
   const navigate = useNavigate();
   const [event, setEvent] = useState<{ id: string; players: Player[]; teams: Team[] } | null>(null);
   const [grid, setGrid] = useState<Record<string, string>>({});
+  const [teamOrder, setTeamOrder] = useState<string[]>([]);
+  const [teamOrderLocked, setTeamOrderLocked] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -216,20 +253,33 @@ const DraftSubmission = () => {
       const ev = eventResponse.data.event;
       setEvent(ev);
 
-      const teamIds = (ev.teams || []).map((t: Team) => t.id);
+      const teams = ev.teams || [];
+      const teamIds = teams.map((t: Team) => t.id);
       const numTeams = teamIds.length || 1;
+      const defaultOrder = teams.slice().sort((a: Team, b: Team) => a.name.localeCompare(b.name)).map((t: Team) => t.id);
 
       try {
         const subRes = await axios.get(`${API_URL}/api/draft/${ev.id}/my-submission`);
         const sub = subRes.data.submission;
+        const hasValidTeamOrder = !!(sub?.teamOrder?.length === teamIds.length && teamIds.every((id: string) => sub!.teamOrder!.includes(id)));
         if (sub && sub.items?.length) {
           setSubmission(sub);
-          setGrid(submissionToGrid(sub.items, teamIds, numTeams));
+          const order = hasValidTeamOrder ? sub.teamOrder! : defaultOrder;
+          setTeamOrder(order);
+          setGrid(submissionToGrid(sub.items, order, numTeams));
+          setTeamOrderLocked(hasValidTeamOrder);
         } else {
+          setSubmission(sub || null);
+          const order = hasValidTeamOrder ? sub.teamOrder! : defaultOrder;
+          setTeamOrder(order);
           setGrid({});
+          setTeamOrderLocked(hasValidTeamOrder);
         }
       } catch {
+        setSubmission(null);
+        setTeamOrder(defaultOrder);
         setGrid({});
+        setTeamOrderLocked(false);
       }
     } catch (e) {
       console.error('Failed to fetch event:', e);
@@ -239,7 +289,7 @@ const DraftSubmission = () => {
     }
   };
 
-  const teamIds = useMemo(() => (event?.teams || []).map((t) => t.id), [event]);
+  const teamIds = useMemo(() => teamOrder.length > 0 ? teamOrder : (event?.teams || []).map((t) => t.id), [teamOrder, event?.teams]);
   const numTeams = teamIds.length || 1;
   const totalSlots = (event?.players || []).length;
   const maxRound = Math.ceil(totalSlots / numTeams) || 1;
@@ -328,7 +378,10 @@ const DraftSubmission = () => {
     setError('');
 
     try {
-      await axios.post(`${API_URL}/api/draft/${event.id}/submit-order`, { playerOrder });
+      await axios.post(`${API_URL}/api/draft/${event.id}/submit-order`, {
+        playerOrder,
+        teamOrder: teamIds,
+      });
       navigate(`/event/${eventCode}`);
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to submit draft order');
@@ -384,14 +437,6 @@ const DraftSubmission = () => {
       </nav>
 
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Draft board</h2>
-          <p className="text-gray-600">
-            Drag players from the list into the slots to predict the draft order. Each slot
-            corresponds to a pick in snake order (round 1 left-to-right, round 2 right-to-left, etc.).
-          </p>
-        </div>
-
         {isLocked && (
           <div className="mb-4 bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded">
             This submission is locked. You can view it but cannot make changes.
@@ -404,7 +449,94 @@ const DraftSubmission = () => {
           </div>
         )}
 
-        <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+        {/* Step 1: Predict team draft order — required before the board is shown */}
+        <div className="mb-6 bg-white shadow rounded-lg p-4">
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Predict team draft order</h3>
+          {!teamOrderLocked ? (
+            <>
+              <p className="text-sm text-gray-600 mb-3">
+                Drag teams to set which you think picks 1st, 2nd, 3rd, etc. in round 1. Lock this order to open the draft board and predict player picks.
+              </p>
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={(e) => {
+                  const { active, over } = e;
+                  if (!over || active.id === over.id) return;
+                  const o = teamIds.indexOf(active.id as string);
+                  const n = teamIds.indexOf(over.id as string);
+                  if (o === -1 || n === -1) return;
+                  setTeamOrder(arrayMove(teamIds, o, n));
+                }}
+              >
+                <SortableContext items={teamIds} strategy={verticalListSortingStrategy}>
+                  <div className="space-y-2">
+                    {teamIds.map((id, i) => {
+                      const t = event.teams.find((x) => x.id === id);
+                      return (
+                        <SortableTeamRowPrediction
+                          key={id}
+                          id={id}
+                          team={t}
+                          index={i + 1}
+                          disabled={isLocked}
+                        />
+                      );
+                    })}
+                  </div>
+                </SortableContext>
+              </DndContext>
+              {!isLocked && (
+                <button
+                  type="button"
+                  onClick={() => setTeamOrderLocked(true)}
+                  className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+                >
+                  Lock team order
+                </button>
+              )}
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-gray-600 mb-2">Your order (board columns follow this):</p>
+              <div className="flex flex-wrap items-center gap-2 mb-2">
+                {teamIds.map((id, i) => {
+                  const t = event.teams.find((x) => x.id === id);
+                  return t ? (
+                    <span key={id} className="text-sm">
+                      <span className="text-gray-500">{i + 1}.</span> {t.name}
+                      {i < teamIds.length - 1 && <span className="text-gray-400 mx-1">→</span>}
+                    </span>
+                  ) : null;
+                })}
+              </div>
+              {!isLocked && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTeamOrderLocked(false);
+                    setGrid({});
+                  }}
+                  className="text-sm text-indigo-600 hover:text-indigo-800"
+                >
+                  Edit team order
+                </button>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Step 2: Draft board and player pool — only after team order is locked */}
+        {teamOrderLocked && (
+          <>
+            <div className="mb-4">
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Draft board</h2>
+              <p className="text-gray-600">
+                Drag players from the list into the slots to predict the draft order. Columns follow your team order above. Each slot is a pick in snake order.
+              </p>
+            </div>
+
+            <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
           <div className="flex flex-col lg:flex-row gap-6">
             {/* Draft board grid */}
             <div className="flex-1 min-w-0">
@@ -422,14 +554,17 @@ const DraftSubmission = () => {
                         <th className="text-left p-2 border-b border-gray-200 font-semibold text-gray-700 sticky left-0 bg-white z-10 min-w-[4rem]">
                           Round
                         </th>
-                        {event.teams.map((t) => (
-                          <th
-                            key={t.id}
-                            className="text-left p-2 border-b border-gray-200 font-semibold text-gray-700 min-w-[7rem]"
-                          >
-                            {t.name}
-                          </th>
-                        ))}
+                        {teamIds.map((teamId) => {
+                          const t = event.teams.find((x) => x.id === teamId);
+                          return (
+                            <th
+                              key={teamId}
+                              className="text-left p-2 border-b border-gray-200 font-semibold text-gray-700 min-w-[7rem]"
+                            >
+                              {t?.name ?? ''}
+                            </th>
+                          );
+                        })}
                       </tr>
                     </thead>
                     <tbody>
@@ -438,15 +573,15 @@ const DraftSubmission = () => {
                           <td className="p-2 border-b border-gray-100 font-medium text-gray-600 sticky left-0 bg-white z-10">
                             {round}
                           </td>
-                          {event.teams.map((t, teamIndex) => (
+                          {teamIds.map((teamId, teamIndex) => (
                             <DraftCell
-                              key={`${round}-${t.id}`}
+                              key={`${round}-${teamId}`}
                               round={round}
-                              teamId={t.id}
+                              teamId={teamId}
                               teamIndex={teamIndex}
                               numTeams={numTeams}
                               totalSlots={totalSlots}
-                              playerId={grid[`${round}-${t.id}`]}
+                              playerId={grid[`${round}-${teamId}`]}
                               players={players}
                               disabled={isLocked}
                             />
@@ -505,6 +640,8 @@ const DraftSubmission = () => {
             </button>
           )}
         </div>
+          </>
+        )}
       </main>
     </div>
   );

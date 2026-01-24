@@ -1,6 +1,15 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { useAuth } from '../contexts/AuthContext';
 
 interface User {
@@ -24,6 +33,32 @@ interface Event {
 }
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
+function SortableTeamRow({
+  id,
+  team,
+  index,
+}: {
+  id: string;
+  team: { id: string; name: string } | undefined;
+  index: number;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  if (!team) return null;
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={`flex items-center gap-2 py-1.5 px-2 rounded border border-gray-200 bg-gray-50 ${isDragging ? 'opacity-70 shadow-lg z-10' : ''} cursor-grab active:cursor-grabbing`}
+      {...attributes}
+      {...listeners}
+    >
+      <span className="text-gray-400 select-none" aria-hidden>⋮⋮</span>
+      <span className="text-sm font-medium text-gray-500 w-6">#{index}</span>
+      <span className="flex-1 font-medium text-gray-900">{team.name}</span>
+    </div>
+  );
+}
 
 const AdminDashboard = () => {
   const { user } = useAuth();
@@ -50,9 +85,23 @@ const AdminDashboard = () => {
   const [eventDetails, setEventDetails] = useState<any>(null);
   const [addCaptainByTeam, setAddCaptainByTeam] = useState<Record<string, { playerId: string; discordUsername: string }>>({});
   const [addingCaptainToTeamId, setAddingCaptainToTeamId] = useState<string | null>(null);
+  const [teamOrderIds, setTeamOrderIds] = useState<string[]>([]);
+  const [savingTeamDraftOrder, setSavingTeamDraftOrder] = useState(false);
 
   // Export state
   const [exporting, setExporting] = useState(false);
+
+  const teamOrderSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  );
+
+  function getOrderedTeamIds(ed: any): string[] {
+    if (!ed?.teams?.length) return [];
+    const ids = ed.teams.map((t: any) => t.id);
+    if (ed.teamDraftOrder?.length === ids.length && ids.every((id: string) => ed.teamDraftOrder.includes(id)))
+      return ed.teamDraftOrder;
+    return ed.teams.slice().sort((a: any, b: any) => a.name.localeCompare(b.name)).map((t: any) => t.id);
+  }
 
   useEffect(() => {
     fetchData();
@@ -209,6 +258,24 @@ const AdminDashboard = () => {
       fetchEventDetails(selectedEvent.id);
     } catch (error: any) {
       alert(error.response?.data?.error || 'Failed to remove captain');
+    }
+  };
+
+  const handleSaveTeamDraftOrder = async () => {
+    if (!selectedEvent || !eventDetails?.teams?.length) return;
+    const tlen = eventDetails.teams.length;
+    const ordered = teamOrderIds.length === tlen && teamOrderIds.every((id) => eventDetails.teams.some((t: any) => t.id === id))
+      ? teamOrderIds
+      : getOrderedTeamIds(eventDetails);
+    setSavingTeamDraftOrder(true);
+    try {
+      await axios.put(`${API_URL}/api/events/${selectedEvent.id}/team-draft-order`, { teamOrder: ordered });
+      setTeamOrderIds([]);
+      fetchEventDetails(selectedEvent.id);
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Failed to save team draft order');
+    } finally {
+      setSavingTeamDraftOrder(false);
     }
   };
 
@@ -480,6 +547,56 @@ const AdminDashboard = () => {
                               Draft initialized - Round {eventDetails.draftOrder.currentRound}, Pick {eventDetails.draftOrder.currentPick + 1}
                             </p>
                           )}
+                        </div>
+                      )}
+
+                      {/* Team draft order (1st, 2nd, … to draft) — editable until Initialize; drag to reorder */}
+                      {eventDetails && eventDetails.teams?.length > 0 && !eventDetails.draftOrder && (
+                        <div className="bg-white border border-gray-200 p-4 rounded-lg">
+                          <h3 className="text-lg font-semibold text-gray-900 mb-2">Team draft order</h3>
+                          <p className="text-sm text-gray-600 mb-3">
+                            Drag teams to set which picks 1st, 2nd, 3rd, etc. in round 1. Locked once you Initialize Draft.
+                          </p>
+                          {(() => {
+                            const tlen = eventDetails.teams.length;
+                            const displayOrder =
+                              teamOrderIds.length === tlen &&
+                              teamOrderIds.every((id) => eventDetails.teams.some((t: any) => t.id === id))
+                                ? teamOrderIds
+                                : getOrderedTeamIds(eventDetails);
+                            const teamById = (id: string) => eventDetails.teams.find((t: any) => t.id === id);
+                            const handleTeamOrderDragEnd = (e: { active: { id: string }; over: { id: string } | null }) => {
+                              const { active, over } = e;
+                              if (!over || active.id === over.id) return;
+                              const o = displayOrder.indexOf(active.id as string);
+                              const n = displayOrder.indexOf(over.id as string);
+                              if (o === -1 || n === -1) return;
+                              setTeamOrderIds(arrayMove(displayOrder, o, n));
+                            };
+                            return (
+                              <div className="space-y-2">
+                                <DndContext
+                                  sensors={teamOrderSensors}
+                                  collisionDetection={closestCenter}
+                                  onDragEnd={handleTeamOrderDragEnd}
+                                >
+                                  <SortableContext items={displayOrder} strategy={verticalListSortingStrategy}>
+                                    {displayOrder.map((id, i) => (
+                                      <SortableTeamRow key={id} id={id} team={teamById(id)} index={i + 1} />
+                                    ))}
+                                  </SortableContext>
+                                </DndContext>
+                                <button
+                                  type="button"
+                                  onClick={handleSaveTeamDraftOrder}
+                                  disabled={savingTeamDraftOrder}
+                                  className="mt-2 px-3 py-1.5 bg-indigo-600 text-white rounded text-sm hover:bg-indigo-700 disabled:opacity-50"
+                                >
+                                  {savingTeamDraftOrder ? 'Saving...' : 'Save team draft order'}
+                                </button>
+                              </div>
+                            );
+                          })()}
                         </div>
                       )}
 

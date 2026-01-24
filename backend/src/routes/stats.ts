@@ -9,17 +9,14 @@ router.get('/:eventId/rankings', async (req, res) => {
   try {
     const { eventId } = req.params;
 
-    // Get event and actual draft picks
     const event = await prisma.event.findUnique({
       where: { id: eventId },
       include: {
+        teams: true,
+        draftOrder: true,
         draftPicks: {
-          include: {
-            player: true,
-          },
-          orderBy: {
-            pickNumber: 'asc',
-          },
+          include: { player: true },
+          orderBy: { pickNumber: 'asc' },
         },
       },
     });
@@ -33,32 +30,21 @@ router.get('/:eventId/rankings', async (req, res) => {
       return res.json({ rankings: [], message: 'Rankings will be available after the draft completes' });
     }
 
-    // Get all submissions
     const submissions = await prisma.draftOrderSubmission.findMany({
       where: { eventId },
       include: {
-        user: {
-          select: {
-            id: true,
-            discordUsername: true,
-          },
-        },
-        items: {
-          include: {
-            player: true,
-          },
-          orderBy: {
-            position: 'asc',
-          },
-        },
+        user: { select: { id: true, discordUsername: true } },
+        items: { include: { player: true }, orderBy: { position: 'asc' } },
       },
     });
 
-    // Calculate scores
     const actualOrder = event.draftPicks.map(p => ({
       playerId: p.playerId,
       pickNumber: p.pickNumber,
     }));
+
+    const numTeams = event.teams?.length ?? 0;
+    const actualTeamOrder = event.draftOrder?.teamOrder?.slice(0, numTeams) ?? [];
 
     const rankings = submissions.map(submission => {
       const userOrder = submission.items.map(item => ({
@@ -66,9 +52,8 @@ router.get('/:eventId/rankings', async (req, res) => {
         predictedPosition: item.position,
       }));
 
-      // Calculate accuracy: how many picks match exactly
       let exactMatches = 0;
-      let closeMatches = 0; // Within 3 positions
+      let closeMatches = 0;
       const matchDetails: Array<{
         playerName: string;
         predicted: number;
@@ -80,11 +65,8 @@ router.get('/:eventId/rankings', async (req, res) => {
         const actualPick = actualOrder.find(ap => ap.playerId === userPick.playerId);
         if (actualPick) {
           const difference = Math.abs(userPick.predictedPosition - actualPick.pickNumber);
-          if (difference === 0) {
-            exactMatches++;
-          } else if (difference <= 3) {
-            closeMatches++;
-          }
+          if (difference === 0) exactMatches++;
+          else if (difference <= 3) closeMatches++;
 
           const player = submission.items.find(i => i.playerId === userPick.playerId)?.player;
           if (player) {
@@ -98,14 +80,24 @@ router.get('/:eventId/rankings', async (req, res) => {
         }
       });
 
-      // Calculate score (exact matches worth more)
-      const score = exactMatches * 10 + closeMatches * 3;
+      const playerScore = exactMatches * 10 + closeMatches * 3;
+
+      let teamOrderExactMatches = 0;
+      if (numTeams > 0 && submission.teamOrder?.length === numTeams && actualTeamOrder.length === numTeams) {
+        for (let i = 0; i < numTeams; i++) {
+          if (submission.teamOrder[i] === actualTeamOrder[i]) teamOrderExactMatches++;
+        }
+      }
+      const teamOrderScore = teamOrderExactMatches * 5;
+      const score = playerScore + teamOrderScore;
 
       return {
         userId: submission.user.id,
         userName: submission.user.discordUsername,
         exactMatches,
         closeMatches,
+        teamOrderExactMatches,
+        teamOrderScore,
         score,
         totalPlayers: userOrder.length,
         matchDetails: matchDetails.sort((a, b) => a.difference - b.difference),
@@ -158,18 +150,14 @@ router.get('/:eventId/my-stats', authenticate, async (req: AuthRequest, res) => 
       return res.status(404).json({ error: 'No submission found' });
     }
 
-    // Get actual draft picks
     const event = await prisma.event.findUnique({
       where: { id: eventId },
       include: {
+        teams: true,
+        draftOrder: true,
         draftPicks: {
-          include: {
-            player: true,
-            team: true,
-          },
-          orderBy: {
-            pickNumber: 'asc',
-          },
+          include: { player: true, team: true },
+          orderBy: { pickNumber: 'asc' },
         },
       },
     });
@@ -178,7 +166,6 @@ router.get('/:eventId/my-stats', authenticate, async (req: AuthRequest, res) => 
       return res.status(404).json({ error: 'Event not found' });
     }
 
-    // Calculate stats
     const actualOrder = event.draftPicks.map(p => ({
       playerId: p.playerId,
       pickNumber: p.pickNumber,
@@ -206,11 +193,8 @@ router.get('/:eventId/my-stats', authenticate, async (req: AuthRequest, res) => 
       const actualPick = actualOrder.find(ap => ap.playerId === userPick.playerId);
       if (actualPick) {
         const difference = Math.abs(userPick.predictedPosition - actualPick.pickNumber);
-        if (difference === 0) {
-          exactMatches++;
-        } else if (difference <= 3) {
-          closeMatches++;
-        }
+        if (difference === 0) exactMatches++;
+        else if (difference <= 3) closeMatches++;
 
         matchDetails.push({
           playerName: userPick.player.name,
@@ -220,7 +204,6 @@ router.get('/:eventId/my-stats', authenticate, async (req: AuthRequest, res) => 
           team: actualPick.team.name,
         });
       } else {
-        // Player not yet drafted
         matchDetails.push({
           playerName: userPick.player.name,
           predicted: userPick.predictedPosition,
@@ -231,7 +214,18 @@ router.get('/:eventId/my-stats', authenticate, async (req: AuthRequest, res) => 
       }
     });
 
-    const score = exactMatches * 10 + closeMatches * 3;
+    const playerScore = exactMatches * 10 + closeMatches * 3;
+
+    const numTeams = event.teams?.length ?? 0;
+    const actualTeamOrder = event.draftOrder?.teamOrder?.slice(0, numTeams) ?? [];
+    let teamOrderExactMatches = 0;
+    if (numTeams > 0 && submission.teamOrder?.length === numTeams && actualTeamOrder.length === numTeams) {
+      for (let i = 0; i < numTeams; i++) {
+        if (submission.teamOrder[i] === actualTeamOrder[i]) teamOrderExactMatches++;
+      }
+    }
+    const teamOrderScore = teamOrderExactMatches * 5;
+    const score = playerScore + teamOrderScore;
 
     res.json({
       submission: {
@@ -241,6 +235,8 @@ router.get('/:eventId/my-stats', authenticate, async (req: AuthRequest, res) => 
       stats: {
         exactMatches,
         closeMatches,
+        teamOrderExactMatches,
+        teamOrderScore,
         score,
         totalPlayers: userOrder.length,
         matchDetails: matchDetails.sort((a, b) => {

@@ -7,29 +7,26 @@ import { getIO } from '../socketManager';
 const router = express.Router();
 
 const submitDraftOrderSchema = z.object({
-  playerOrder: z.array(z.string()).min(1), // Array of player IDs in order
+  playerOrder: z.array(z.string()).min(1),
+  teamOrder: z.array(z.string()).optional(), // User's predicted team draft order (team IDs: 1st, 2nd, ...)
 });
 
 // Submit draft order (user's prediction)
 router.post('/:eventId/submit-order', authenticate, async (req: AuthRequest, res) => {
   try {
     const { eventId } = req.params;
-    const { playerOrder } = submitDraftOrderSchema.parse(req.body);
+    const { playerOrder, teamOrder: rawTeamOrder } = submitDraftOrderSchema.parse(req.body);
     const userId = req.userId!;
 
-    // Check if event exists and is open
     const event = await prisma.event.findUnique({
       where: { id: eventId },
-      include: {
-        players: true,
-      },
+      include: { players: true, teams: true },
     });
 
     if (!event) {
       return res.status(404).json({ error: 'Event not found' });
     }
 
-    // Check if deadline has passed OR draft has started
     const draftStarted = event.status === 'DRAFTING' || event.status === 'PAUSED' || event.status === 'COMPLETED';
     if (event.draftDeadline && new Date() > new Date(event.draftDeadline)) {
       return res.status(400).json({ error: 'Draft deadline has passed' });
@@ -38,36 +35,41 @@ router.post('/:eventId/submit-order', authenticate, async (req: AuthRequest, res
       return res.status(400).json({ error: 'Draft has already started. Predictions are locked.' });
     }
 
-    // Validate all players exist in event
     const playerIds = event.players.map(p => p.id);
     const invalidPlayers = playerOrder.filter(id => !playerIds.includes(id));
     if (invalidPlayers.length > 0) {
       return res.status(400).json({ error: 'Invalid players in draft order' });
     }
-
-    // Check if all players are included
     if (playerOrder.length !== playerIds.length) {
       return res.status(400).json({ error: 'Draft order must include all players' });
     }
-
-    // Check for duplicates
     if (new Set(playerOrder).size !== playerOrder.length) {
       return res.status(400).json({ error: 'Duplicate players in draft order' });
     }
 
-    // Delete existing submission if any
+    const teamIds = event.teams.map((t) => t.id);
+    let teamOrder: string[] = rawTeamOrder ?? [];
+    if (teamIds.length > 0) {
+      if (teamOrder.length !== teamIds.length) {
+        return res.status(400).json({ error: 'Team order prediction is required and must include each team exactly once' });
+      }
+      const invalid = teamOrder.filter((id) => !teamIds.includes(id));
+      if (invalid.length > 0 || new Set(teamOrder).size !== teamOrder.length) {
+        return res.status(400).json({ error: 'Team order must contain each team exactly once' });
+      }
+    } else {
+      teamOrder = [];
+    }
+
     await prisma.draftOrderSubmission.deleteMany({
-      where: {
-        userId,
-        eventId,
-      },
+      where: { userId, eventId },
     });
 
-    // Create submission
     const submission = await prisma.draftOrderSubmission.create({
       data: {
         userId,
         eventId,
+        teamOrder,
         locked: draftStarted || (event.draftDeadline ? new Date() > new Date(event.draftDeadline) : false),
         items: {
           create: playerOrder.map((playerId, index) => ({
@@ -78,12 +80,8 @@ router.post('/:eventId/submit-order', authenticate, async (req: AuthRequest, res
       },
       include: {
         items: {
-          include: {
-            player: true,
-          },
-          orderBy: {
-            position: 'asc',
-          },
+          include: { player: true },
+          orderBy: { position: 'asc' },
         },
       },
     });
@@ -130,16 +128,14 @@ router.get('/:eventId/my-submission', authenticate, async (req: AuthRequest, res
   }
 });
 
-// Initialize draft order (snake format) (admin only)
+// Initialize draft order (snake format) (admin only). Uses event.teamDraftOrder if set and valid, else teams by name.
 router.post('/:eventId/initialize', authenticate, requireRole('ADMIN'), async (req: AuthRequest, res) => {
   try {
     const { eventId } = req.params;
 
     const event = await prisma.event.findUnique({
       where: { id: eventId },
-      include: {
-        teams: true,
-      },
+      include: { teams: { orderBy: { name: 'asc' } } },
     });
 
     if (!event) {
@@ -150,32 +146,30 @@ router.post('/:eventId/initialize', authenticate, requireRole('ADMIN'), async (r
       return res.status(400).json({ error: 'No teams configured for this event' });
     }
 
-    // Generate snake draft order
-    const teamIds = event.teams.map(t => t.id);
+    const allTeamIds = event.teams.map((t) => t.id);
+    let baseOrder: string[] = allTeamIds;
+    if (event.teamDraftOrder && event.teamDraftOrder.length === allTeamIds.length) {
+      const ok = allTeamIds.every((id) => event.teamDraftOrder!.includes(id))
+        && new Set(event.teamDraftOrder).size === event.teamDraftOrder.length;
+      if (ok) baseOrder = event.teamDraftOrder!;
+      else baseOrder = event.teams.map((t) => t.id);
+    } else {
+      baseOrder = event.teams.map((t) => t.id);
+    }
+
     const snakeOrder: string[] = [];
-    
-    // First round: forward
-    snakeOrder.push(...teamIds);
-    
-    // Subsequent rounds: alternate direction
-    // For simplicity, we'll generate enough rounds (assuming max 200 players / teams.length)
-    const maxRounds = Math.ceil(200 / teamIds.length);
+    snakeOrder.push(...baseOrder);
+    const maxRounds = Math.ceil(200 / baseOrder.length);
     for (let round = 2; round <= maxRounds; round++) {
       if (round % 2 === 0) {
-        // Even rounds: reverse order
-        snakeOrder.push(...[...teamIds].reverse());
+        snakeOrder.push(...[...baseOrder].reverse());
       } else {
-        // Odd rounds: forward order
-        snakeOrder.push(...teamIds);
+        snakeOrder.push(...baseOrder);
       }
     }
 
-    // Delete existing draft order if any
-    await prisma.draftOrder.deleteMany({
-      where: { eventId },
-    });
+    await prisma.draftOrder.deleteMany({ where: { eventId } });
 
-    // Create draft order
     const draftOrder = await prisma.draftOrder.create({
       data: {
         eventId,
@@ -186,7 +180,6 @@ router.post('/:eventId/initialize', authenticate, requireRole('ADMIN'), async (r
       },
     });
 
-    // Update event status
     await prisma.event.update({
       where: { id: eventId },
       data: { status: 'DRAFTING' },

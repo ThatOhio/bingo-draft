@@ -199,6 +199,55 @@ router.put('/:id', authenticate, requireRole('ADMIN'), async (req: AuthRequest, 
   }
 });
 
+const teamDraftOrderSchema = z.object({
+  teamOrder: z.array(z.string()),
+});
+
+// Set team draft order (admin only) — which team picks 1st, 2nd, etc. Editable until draft is initialized.
+router.put('/:id/team-draft-order', authenticate, requireRole('ADMIN'), async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+    const { teamOrder } = teamDraftOrderSchema.parse(req.body);
+
+    const event = await prisma.event.findUnique({
+      where: { id },
+      include: { teams: true, draftOrder: true },
+    });
+
+    if (!event) {
+      return res.status(404).json({ error: 'Event not found' });
+    }
+    if (event.draftOrder) {
+      return res.status(400).json({ error: 'Draft already initialized; team order cannot be changed' });
+    }
+
+    const teamIds = event.teams.map((t) => t.id);
+    if (teamOrder.length !== teamIds.length) {
+      return res.status(400).json({ error: 'teamOrder must contain each team exactly once' });
+    }
+    const invalid = teamOrder.filter((tid) => !teamIds.includes(tid));
+    if (invalid.length > 0) {
+      return res.status(400).json({ error: 'teamOrder contains invalid or duplicate team IDs' });
+    }
+    if (new Set(teamOrder).size !== teamOrder.length) {
+      return res.status(400).json({ error: 'teamOrder must not contain duplicates' });
+    }
+
+    await prisma.event.update({
+      where: { id },
+      data: { teamDraftOrder: teamOrder },
+    });
+
+    res.json({ success: true, teamOrder });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: error.errors });
+    }
+    console.error('Set team draft order error:', error);
+    res.status(500).json({ error: 'Failed to set team draft order' });
+  }
+});
+
 // Bulk import players from text (pasteable list) (admin only)
 router.post('/:id/players/bulk-import', authenticate, requireRole('ADMIN'), async (req: AuthRequest, res) => {
   try {
