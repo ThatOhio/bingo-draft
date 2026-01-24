@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useSocket } from '../contexts/SocketContext';
 import { useAuth } from '../contexts/AuthContext';
+import { DarkModeToggle } from '../components/DarkModeToggle';
 
 interface Player {
   id: string;
@@ -206,8 +207,8 @@ const LiveDraft = () => {
 
   if (loading || !draftState) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading draft...</div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-lg text-gray-600 dark:text-gray-400">Loading draft...</div>
       </div>
     );
   }
@@ -226,20 +227,22 @@ const LiveDraft = () => {
   const canPauseResume = isAdmin && event && (event.status === 'DRAFTING' || event.status === 'PAUSED');
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <nav className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
               <button
                 onClick={() => navigate(`/event/${eventCode}`)}
-                className="text-gray-600 hover:text-gray-800 mr-4"
+                className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 mr-4"
               >
                 ← Back
               </button>
-              <h1 className="text-xl font-bold text-gray-900">Live Draft</h1>
+              <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Live Draft</h1>
             </div>
-            {canMakePick && (
+            <div className="flex items-center gap-2">
+              <DarkModeToggle />
+              {canMakePick && (
               <div className="flex gap-2">
                 {canPauseResume && (
                   <>
@@ -268,33 +271,34 @@ const LiveDraft = () => {
                   Undo Last Pick
                 </button>
               </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       </nav>
 
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
-          <div className="mb-6 bg-white shadow rounded-lg p-6">
+          <div className="mb-6 bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50 rounded-lg p-6">
             <div className="flex justify-between items-center">
               <div>
-                <h2 className="text-2xl font-bold text-gray-900">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                   Round {draftState.draftOrder?.currentRound || 1}
                 </h2>
-                <p className="text-gray-600">
+                <p className="text-gray-600 dark:text-gray-400">
                   Pick #{draftState.draftOrder ? draftState.draftOrder.currentPick + 1 : 0} of{' '}
                   {event.players.length}
                 </p>
                 {event.status === 'PAUSED' && (
-                  <div className="mt-2 px-3 py-1 bg-yellow-100 text-yellow-800 rounded text-sm font-medium">
+                  <div className="mt-2 px-3 py-1 bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-200 rounded text-sm font-medium">
                     ⏸ Draft Paused
                   </div>
                 )}
               </div>
               {draftState.currentTeam && (
                 <div className="text-right">
-                  <p className="text-sm text-gray-600">Current Team:</p>
-                  <p className="text-xl font-semibold text-indigo-600">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Current Team:</p>
+                  <p className="text-xl font-semibold text-indigo-600 dark:text-indigo-400">
                     {draftState.currentTeam.name}
                   </p>
                 </div>
@@ -305,14 +309,14 @@ const LiveDraft = () => {
           <div className="grid lg:grid-cols-3 gap-6">
             {/* Available Players */}
             <div className="lg:col-span-1">
-              <div className="bg-white shadow rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Available Players</h3>
+              <div className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Available Players</h3>
                 <input
                   type="text"
                   placeholder="Search players..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full mb-4 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full mb-4 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
                 />
                 <div className="max-h-96 overflow-y-auto space-y-2">
                   {filteredPlayers.map((player) => (
@@ -320,14 +324,14 @@ const LiveDraft = () => {
                       key={player.id}
                       className={`p-3 border rounded-md cursor-pointer transition-colors ${
                         selectedPlayer === player.id
-                          ? 'bg-indigo-100 border-indigo-500'
-                          : 'bg-white border-gray-200 hover:bg-gray-50'
+                          ? 'bg-indigo-100 dark:bg-indigo-900/40 border-indigo-500 dark:border-indigo-400'
+                          : 'bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600'
                       }`}
                       onClick={() => canMakePick && setSelectedPlayer(player.id)}
                     >
-                      <div className="font-medium text-gray-900">{player.name}</div>
+                      <div className="font-medium text-gray-900 dark:text-gray-100">{player.name}</div>
                       {player.team && (
-                        <div className="text-sm text-gray-500">{player.team}</div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">{player.team}</div>
                       )}
                     </div>
                   ))}
@@ -342,7 +346,7 @@ const LiveDraft = () => {
                         <select
                           value={selectedTeamId || ''}
                           onChange={(e) => setSelectedTeamId(e.target.value || null)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                         >
                           <option value="">Use Current Team</option>
                           {draftState.teams.map((team) => (
@@ -370,12 +374,12 @@ const LiveDraft = () => {
             {/* Teams & Recent Picks */}
             <div className="lg:col-span-2">
               {/* Draft Grid: teams as columns, rounds as rows */}
-              <div className="bg-white shadow rounded-lg p-4 mb-6 overflow-x-auto">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Draft Board</h3>
+              <div className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50 rounded-lg p-4 mb-6 overflow-x-auto">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Draft Board</h3>
                 <table className="w-full border-collapse min-w-[400px]">
                   <thead>
                     <tr>
-                      <th className="text-left p-2 border-b border-gray-200 font-semibold text-gray-700 sticky left-0 bg-white z-10 min-w-[4rem]">
+                      <th className="text-left p-2 border-b border-gray-200 dark:border-gray-700 font-semibold text-gray-700 dark:text-gray-300 sticky left-0 bg-white dark:bg-gray-800 z-10 min-w-[4rem]">
                         Round
                       </th>
                       {(draftState.draftOrder
@@ -390,10 +394,10 @@ const LiveDraft = () => {
                         return team ? (
                           <th
                             key={team.id}
-                            className={`text-left p-2 border-b border-gray-200 font-semibold min-w-[7rem] ${
+                            className={`text-left p-2 border-b border-gray-200 dark:border-gray-700 font-semibold min-w-[7rem] ${
                               isCurrentTeam
-                                ? 'bg-amber-100 text-amber-900 border-amber-300'
-                                : 'text-gray-700'
+                                ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200 border-amber-300 dark:border-amber-700'
+                                : 'text-gray-700 dark:text-gray-300'
                             }`}
                           >
                             {team.name}
@@ -412,7 +416,7 @@ const LiveDraft = () => {
                       (_, i) => i + 1
                     ).map((round) => (
                       <tr key={round} className="hover:bg-gray-50/50">
-                        <td className="p-2 border-b border-gray-100 font-medium text-gray-600 sticky left-0 bg-white z-10">
+                        <td className="p-2 border-b border-gray-100 dark:border-gray-700 font-medium text-gray-600 dark:text-gray-400 sticky left-0 bg-white dark:bg-gray-800 z-10">
                           {round}
                         </td>
                         {(draftState.draftOrder
@@ -430,18 +434,18 @@ const LiveDraft = () => {
                           return (
                             <td
                               key={team.id}
-                              className={`p-2 border-b border-gray-100 align-top ${
+                              className={`p-2 border-b border-gray-100 dark:border-gray-700 align-top ${
                                 isCurrentCell
-                                  ? 'bg-amber-200/80 ring-2 ring-amber-500 ring-inset'
-                                  : 'bg-white'
+                                  ? 'bg-amber-200/80 dark:bg-amber-900/50 ring-2 ring-amber-500 dark:ring-amber-600 ring-inset'
+                                  : 'bg-white dark:bg-gray-800'
                               }`}
                             >
                               {pick ? (
-                                <span className="text-gray-900">{pick.player.name}</span>
+                                <span className="text-gray-900 dark:text-gray-100">{pick.player.name}</span>
                               ) : isCurrentCell ? (
-                                <span className="text-amber-700 text-sm italic">On the clock</span>
+                                <span className="text-amber-700 dark:text-amber-300 text-sm italic">On the clock</span>
                               ) : (
-                                <span className="text-gray-300">-</span>
+                                <span className="text-gray-300 dark:text-gray-600">-</span>
                               )}
                             </td>
                           );
@@ -452,17 +456,17 @@ const LiveDraft = () => {
                 </table>
               </div>
 
-              <div className="bg-white shadow rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Picks</h3>
+              <div className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Recent Picks</h3>
                 <div className="space-y-2 max-h-64 overflow-y-auto">
                   {draftState.picks.slice(-10).reverse().map((pick) => (
-                    <div key={pick.id} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                    <div key={pick.id} className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-700/50 rounded">
                       <div>
-                        <span className="font-medium">#{pick.pickNumber}</span> -{' '}
-                        <span className="font-semibold">{pick.player.name}</span> →{' '}
-                        <span className="text-indigo-600">{pick.team.name}</span>
+                        <span className="font-medium text-gray-900 dark:text-gray-100">#{pick.pickNumber}</span> -{' '}
+                        <span className="font-semibold text-gray-900 dark:text-gray-100">{pick.player.name}</span> →{' '}
+                        <span className="text-indigo-600 dark:text-indigo-400">{pick.team.name}</span>
                       </div>
-                      <div className="text-sm text-gray-500">
+                      <div className="text-sm text-gray-500 dark:text-gray-400">
                         Round {pick.round}
                       </div>
                     </div>

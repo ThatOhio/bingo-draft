@@ -26,8 +26,8 @@ const AuthCallback = () => {
   }, [searchParams, navigate]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="text-lg">Completing login...</div>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <div className="text-lg text-gray-600 dark:text-gray-400">Completing login...</div>
     </div>
   );
 };

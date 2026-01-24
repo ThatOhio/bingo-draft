@@ -14,6 +14,7 @@ import {
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useAuth } from '../contexts/AuthContext';
+import { DarkModeToggle } from '../components/DarkModeToggle';
 
 interface Player {
   id: string;
@@ -445,24 +446,24 @@ const DraftSubmission = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-lg text-gray-600 dark:text-gray-400">Loading...</div>
       </div>
     );
   }
 
   if (!event) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg text-red-600">Event not found</div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-lg text-red-600 dark:text-red-400">Event not found</div>
       </div>
     );
   }
 
   if (event.teams.length === 0) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg text-amber-700">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-lg text-amber-700 dark:text-amber-400">
           No teams configured for this event. The draft board is available once teams are added.
         </div>
       </div>
@@ -470,39 +471,40 @@ const DraftSubmission = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <nav className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
               <button
                 onClick={() => navigate(`/event/${eventCode}`)}
-                className="text-gray-600 hover:text-gray-800 mr-4"
+                className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 mr-4"
               >
                 ← Back
               </button>
-              <h1 className="text-xl font-bold text-gray-900">Mock Draft: Predictions</h1>
+              <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Mock Draft: Predictions</h1>
             </div>
+            <DarkModeToggle />
           </div>
         </div>
       </nav>
 
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         {isLocked && (
-          <div className="mb-4 bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded">
+          <div className="mb-4 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 px-4 py-3 rounded">
             This prediction is locked. You can view it but cannot make changes.
           </div>
         )}
 
         {error && (
-          <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+          <div className="mb-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-200 px-4 py-3 rounded">
             {error}
           </div>
         )}
 
         {/* Step 1: Predict team draft order. Required before the board is shown. */}
-        <div className="mb-6 bg-white shadow rounded-lg p-4">
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Predict team draft order</h3>
+        <div className="mb-6 bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50 rounded-lg p-4">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Predict team draft order</h3>
           {!teamOrderLocked ? (
             <>
               <p className="text-sm text-gray-600 mb-3">
@@ -594,8 +596,8 @@ const DraftSubmission = () => {
         {teamOrderLocked && (
           <>
             <div className="mb-4">
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Draft board</h2>
-              <p className="text-gray-600">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Draft board</h2>
+              <p className="text-gray-600 dark:text-gray-400">
                 Drag players from the list into the slots to predict the draft order. Columns follow your team order above. Each slot is a pick in snake order. Save anytime; partial predictions are fine. Whatever you have saved when the draft starts will count.
               </p>
             </div>
@@ -604,10 +606,10 @@ const DraftSubmission = () => {
           <div className="flex flex-col lg:flex-row gap-6">
             {/* Draft board grid */}
             <div className="flex-1 min-w-0">
-              <div className="bg-white shadow rounded-lg overflow-hidden">
-                <div className="p-4 border-b border-gray-200">
-                  <h3 className="text-lg font-semibold text-gray-900">Board</h3>
-                  <p className="text-sm text-gray-500">
+              <div className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50 rounded-lg overflow-hidden">
+                <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Board</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
                     {placedIds.length} of {totalSlots} players placed
                   </p>
                 </div>
@@ -660,15 +662,15 @@ const DraftSubmission = () => {
 
             {/* Player pool */}
             <div className="w-full lg:w-80 xl:w-96 flex-shrink-0">
-              <div className="bg-white shadow rounded-lg flex flex-col h-fit max-h-[70vh]">
-                <div className="p-4 border-b border-gray-200 flex flex-col gap-2">
-                  <h3 className="text-lg font-semibold text-gray-900">Players</h3>
+              <div className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50 rounded-lg flex flex-col h-fit max-h-[70vh]">
+                <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex flex-col gap-2">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Players</h3>
                   <input
                     type="text"
                     placeholder="Search..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 text-sm"
                   />
                 </div>
                 <DroppablePool disabled={isLocked}>
@@ -691,7 +693,7 @@ const DraftSubmission = () => {
         </DndContext>
 
         <div className="mt-6 flex justify-between items-center">
-          <div className="text-sm text-gray-600">
+          <div className="text-sm text-gray-600 dark:text-gray-400">
             {placedIds.length} of {totalSlots} players placed
             {submission?.submittedAt && !isLocked && (
               <span className="ml-3 text-gray-500">

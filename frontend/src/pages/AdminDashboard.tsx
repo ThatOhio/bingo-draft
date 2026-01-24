@@ -12,6 +12,7 @@ import {
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useAuth } from '../contexts/AuthContext';
+import { DarkModeToggle } from '../components/DarkModeToggle';
 
 interface User {
   id: string;
@@ -330,25 +331,26 @@ const AdminDashboard = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-lg text-gray-600 dark:text-gray-400">Loading...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <nav className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
-              <Link to="/" className="text-gray-600 hover:text-gray-800 mr-4">
+              <Link to="/" className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 mr-4">
                 ← Back
               </Link>
-              <h1 className="text-xl font-bold text-gray-900">Admin Dashboard</h1>
+              <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Admin Dashboard</h1>
             </div>
-            <div className="flex items-center">
-              <span className="text-gray-700">{user?.discordUsername}</span>
+            <div className="flex items-center space-x-2">
+              <DarkModeToggle />
+              <span className="text-gray-700 dark:text-gray-300">{user?.discordUsername}</span>
             </div>
           </div>
         </div>
@@ -356,15 +358,15 @@ const AdminDashboard = () => {
 
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
-          <div className="bg-white shadow rounded-lg">
-            <div className="border-b border-gray-200">
+          <div className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50 rounded-lg">
+            <div className="border-b border-gray-200 dark:border-gray-700">
               <nav className="flex -mb-px">
                 <button
                   onClick={() => setActiveTab('users')}
                   className={`py-4 px-6 text-sm font-medium ${
                     activeTab === 'users'
-                      ? 'border-b-2 border-indigo-500 text-indigo-600'
-                      : 'text-gray-500 hover:text-gray-700'
+                      ? 'border-b-2 border-indigo-500 text-indigo-600 dark:text-indigo-400'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
                   }`}
                 >
                   Users
@@ -373,8 +375,8 @@ const AdminDashboard = () => {
                   onClick={() => setActiveTab('events')}
                   className={`py-4 px-6 text-sm font-medium ${
                     activeTab === 'events'
-                      ? 'border-b-2 border-indigo-500 text-indigo-600'
-                      : 'text-gray-500 hover:text-gray-700'
+                      ? 'border-b-2 border-indigo-500 text-indigo-600 dark:text-indigo-400'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
                   }`}
                 >
                   Events
@@ -383,8 +385,8 @@ const AdminDashboard = () => {
                   onClick={() => setActiveTab('create-event')}
                   className={`py-4 px-6 text-sm font-medium ${
                     activeTab === 'create-event'
-                      ? 'border-b-2 border-indigo-500 text-indigo-600'
-                      : 'text-gray-500 hover:text-gray-700'
+                      ? 'border-b-2 border-indigo-500 text-indigo-600 dark:text-indigo-400'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
                   }`}
                 >
                   Create Event
@@ -393,8 +395,8 @@ const AdminDashboard = () => {
                   onClick={() => setActiveTab('event-management')}
                   className={`py-4 px-6 text-sm font-medium ${
                     activeTab === 'event-management'
-                      ? 'border-b-2 border-indigo-500 text-indigo-600'
-                      : 'text-gray-500 hover:text-gray-700'
+                      ? 'border-b-2 border-indigo-500 text-indigo-600 dark:text-indigo-400'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
                   }`}
                 >
                   Manage Event

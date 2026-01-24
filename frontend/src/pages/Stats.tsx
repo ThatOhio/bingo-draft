@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
+import { DarkModeToggle } from '../components/DarkModeToggle';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 interface CategoryScores {
@@ -163,8 +164,8 @@ const Stats = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading stats...</div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-lg text-gray-600 dark:text-gray-400">Loading stats...</div>
       </div>
     );
   }
@@ -181,19 +182,20 @@ const Stats = () => {
   }));
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <nav className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
               <button
                 onClick={() => navigate(`/event/${eventCode}`)}
-                className="text-gray-600 hover:text-gray-800 mr-4"
+                className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 mr-4"
               >
                 ← Back
               </button>
-              <h1 className="text-xl font-bold text-gray-900">Stats & Rankings</h1>
+              <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Stats & Rankings</h1>
             </div>
+            <DarkModeToggle />
           </div>
         </div>
       </nav>
@@ -201,61 +203,61 @@ const Stats = () => {
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
           {userStats && (
-            <div className="bg-white shadow rounded-lg p-6 mb-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Your Stats</h2>
+            <div className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50 rounded-lg p-6 mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">Your Stats</h2>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 mb-4">
-                <div className="text-center p-3 rounded-lg bg-indigo-50">
-                  <div className="text-2xl font-bold text-indigo-600">
+                <div className="text-center p-3 rounded-lg bg-indigo-50 dark:bg-indigo-900/30">
+                  <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
                     {userStats.stats.exactMatches}
                   </div>
-                  <div className="text-xs text-gray-600">Exact (slot)</div>
+                  <div className="text-xs text-gray-600 dark:text-gray-400">Exact (slot)</div>
                 </div>
-                <div className="text-center p-3 rounded-lg bg-emerald-50">
-                  <div className="text-2xl font-bold text-emerald-600">
+                <div className="text-center p-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/30">
+                  <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
                     {userStats.stats.closeMatches}
                   </div>
-                  <div className="text-xs text-gray-600">Near (±1-3)</div>
+                  <div className="text-xs text-gray-600 dark:text-gray-400">Near (±1-3)</div>
                 </div>
-                <div className="text-center p-3 rounded-lg bg-amber-50">
-                  <div className="text-2xl font-bold text-amber-700">
+                <div className="text-center p-3 rounded-lg bg-amber-50 dark:bg-amber-900/30">
+                  <div className="text-2xl font-bold text-amber-700 dark:text-amber-400">
                     {userStats.stats.teamOrderExactMatches ?? 0}
                   </div>
-                  <div className="text-xs text-gray-600">Team order</div>
+                  <div className="text-xs text-gray-600 dark:text-gray-400">Team order</div>
                 </div>
-                <div className="text-center p-3 rounded-lg bg-cyan-50">
-                  <div className="text-2xl font-bold text-cyan-700">
+                <div className="text-center p-3 rounded-lg bg-cyan-50 dark:bg-cyan-900/30">
+                  <div className="text-2xl font-bold text-cyan-700 dark:text-cyan-400">
                     {userStats.stats.correctTeamMatches ?? 0}
                   </div>
-                  <div className="text-xs text-gray-600">Correct team</div>
+                  <div className="text-xs text-gray-600 dark:text-gray-400">Correct team</div>
                 </div>
-                <div className="text-center p-3 rounded-lg bg-violet-50">
-                  <div className="text-2xl font-bold text-violet-600">
+                <div className="text-center p-3 rounded-lg bg-violet-50 dark:bg-violet-900/30">
+                  <div className="text-2xl font-bold text-violet-600 dark:text-violet-400">
                     {userStats.stats.correctRoundMatches ?? 0}
                   </div>
-                  <div className="text-xs text-gray-600">Correct round</div>
+                  <div className="text-xs text-gray-600 dark:text-gray-400">Correct round</div>
                 </div>
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4 p-3 bg-gray-50 rounded-lg">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                 <div className="text-center">
-                  <span className="text-lg font-semibold text-gray-900">{userStats.stats.playerSlotScore ?? userStats.stats.exactMatches * 10 + (userStats.stats.closeMatches || 0) * 3}</span>
-                  <span className="text-xs text-gray-500 block">Player slot pts</span>
+                  <span className="text-lg font-semibold text-gray-900 dark:text-gray-100">{userStats.stats.playerSlotScore ?? userStats.stats.exactMatches * 10 + (userStats.stats.closeMatches || 0) * 3}</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400 block">Player slot pts</span>
                 </div>
                 <div className="text-center">
-                  <span className="text-lg font-semibold text-gray-900">{userStats.stats.teamOrderScore ?? 0}</span>
-                  <span className="text-xs text-gray-500 block">Team order pts</span>
+                  <span className="text-lg font-semibold text-gray-900 dark:text-gray-100">{userStats.stats.teamOrderScore ?? 0}</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400 block">Team order pts</span>
                 </div>
                 <div className="text-center">
-                  <span className="text-lg font-semibold text-gray-900">{userStats.stats.correctTeamScore ?? 0}</span>
-                  <span className="text-xs text-gray-500 block">Correct team pts</span>
+                  <span className="text-lg font-semibold text-gray-900 dark:text-gray-100">{userStats.stats.correctTeamScore ?? 0}</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400 block">Correct team pts</span>
                 </div>
                 <div className="text-center">
-                  <span className="text-lg font-semibold text-gray-900">{userStats.stats.correctRoundScore ?? 0}</span>
-                  <span className="text-xs text-gray-500 block">Correct round pts</span>
+                  <span className="text-lg font-semibold text-gray-900 dark:text-gray-100">{userStats.stats.correctRoundScore ?? 0}</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400 block">Correct round pts</span>
                 </div>
               </div>
               <div className="flex items-center justify-between">
-                <div className="text-2xl font-bold text-purple-600">Total: {userStats.stats.score}</div>
-                <div className="text-sm text-gray-500">
+                <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">Total: {userStats.stats.score}</div>
+                <div className="text-sm text-gray-500 dark:text-gray-400">
                   Last saved: {new Date(userStats.submission.submittedAt).toLocaleString()}
                 </div>
               </div>
@@ -263,9 +265,9 @@ const Stats = () => {
           )}
 
           {aggregate != null && (
-            <div className="bg-white shadow rounded-lg p-6 mb-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-1">Draft Insights</h2>
-              <p className="text-sm text-gray-500 mb-6">
+            <div className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50 rounded-lg p-6 mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">Draft Insights</h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
                 How the draft played out across all predictions. Based on {aggregate.totalSubmissions} submission{aggregate.totalSubmissions !== 1 ? 's' : ''}
                 {aggregate.totalWithTeamOrder > 0 && aggregate.totalWithTeamOrder !== aggregate.totalSubmissions
                   ? ` (${aggregate.totalWithTeamOrder} with team order)`
@@ -392,10 +394,10 @@ const Stats = () => {
             </div>
           )}
 
-          <div className="bg-white shadow rounded-lg p-6 mb-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Leaderboard</h2>
+          <div className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50 rounded-lg p-6 mb-6">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">Leaderboard</h2>
             {rankings.length === 0 ? (
-              <p className="text-gray-600">No rankings available yet.</p>
+              <p className="text-gray-600 dark:text-gray-400">No rankings available yet.</p>
             ) : (
               <>
                 <div className="mb-6">
@@ -414,10 +416,10 @@ const Stats = () => {
                   </ResponsiveContainer>
                 </div>
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <thead className="bg-gray-50 dark:bg-gray-700/50">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                           Rank
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -443,13 +445,13 @@ const Stats = () => {
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                       {rankings.map((ranking) => (
                         <tr
                           key={ranking.userId}
-                          className={ranking.userId === user?.id ? 'bg-indigo-50' : ''}
+                          className={ranking.userId === user?.id ? 'bg-indigo-50 dark:bg-indigo-900/30' : ''}
                         >
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
                             #{ranking.rank}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -486,11 +488,11 @@ const Stats = () => {
           </div>
 
           {userStats && (
-            <div className="bg-white shadow rounded-lg p-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Your Match Details</h2>
+            <div className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50 rounded-lg p-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">Your Match Details</h2>
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <thead className="bg-gray-50 dark:bg-gray-700/50">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Player
@@ -515,19 +517,19 @@ const Stats = () => {
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                     {userStats.stats.matchDetails.map((match, index) => (
                       <tr
                         key={index}
                         className={
                           match.difference === 0
-                            ? 'bg-green-50'
+                            ? 'bg-green-50 dark:bg-green-900/20'
                             : match.difference !== null && match.difference <= 3
-                            ? 'bg-yellow-50'
+                            ? 'bg-yellow-50 dark:bg-yellow-900/20'
                             : ''
                         }
                       >
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
                           {match.playerName}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">

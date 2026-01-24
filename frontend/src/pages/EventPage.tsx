@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
+import { DarkModeToggle } from '../components/DarkModeToggle';
 
 interface Event {
   id: string;
@@ -62,16 +63,16 @@ const EventPage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-lg text-gray-600 dark:text-gray-400">Loading...</div>
       </div>
     );
   }
 
   if (!event) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg text-red-600">Event not found</div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-lg text-red-600 dark:text-red-400">Event not found</div>
       </div>
     );
   }
@@ -82,36 +83,37 @@ const EventPage = () => {
   const canSubmit = !isDeadlinePassed && event.status !== 'DRAFTING' && event.status !== 'COMPLETED';
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <nav className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
-              <Link to="/" className="text-gray-600 hover:text-gray-800 mr-4">
+              <Link to="/" className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 mr-4">
                 ← Back
               </Link>
-              <h1 className="text-xl font-bold text-gray-900">{event.name}</h1>
+              <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{event.name}</h1>
             </div>
-            {user && (
-              <div className="flex items-center space-x-4">
-                <span className="text-gray-700">{user.discordUsername}</span>
-              </div>
-            )}
+            <div className="flex items-center space-x-2 sm:space-x-4">
+              <DarkModeToggle />
+              {user && (
+                <span className="text-gray-700 dark:text-gray-300">{user.discordUsername}</span>
+              )}
+            </div>
           </div>
         </div>
       </nav>
 
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
-          <div className="bg-white shadow rounded-lg p-6 mb-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Event Details</h2>
+          <div className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50 rounded-lg p-6 mb-6">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">Event Details</h2>
             {event.description && (
-              <p className="text-gray-600 mb-4">{event.description}</p>
+              <p className="text-gray-600 dark:text-gray-400 mb-4">{event.description}</p>
             )}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-700 dark:text-gray-300">
               <div>
                 <span className="font-semibold">Status:</span>
-                <span className="ml-2 px-2 py-1 bg-gray-100 rounded">{event.status}</span>
+                <span className="ml-2 px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-gray-800 dark:text-gray-200">{event.status}</span>
               </div>
               <div>
                 <span className="font-semibold">Players:</span>
@@ -148,12 +150,12 @@ const EventPage = () => {
             {user && canSubmit && (
               <Link
                 to={`/event/${eventCode}/submit`}
-                className="bg-white shadow rounded-lg p-6 hover:shadow-lg transition-shadow"
+                className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50 rounded-lg p-6 hover:shadow-lg dark:hover:shadow-gray-900/70 transition-shadow"
               >
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
                   {hasSubmission ? 'Edit your prediction' : 'Create your prediction'}
                 </h3>
-                <p className="text-gray-600">
+                <p className="text-gray-600 dark:text-gray-400">
                   {hasSubmission
                     ? 'Continue editing and save your prediction. You can save partial progress and come back later.'
                     : 'Create and save your prediction for how the draft will go. You can save partial progress and come back later.'}
@@ -165,10 +167,10 @@ const EventPage = () => {
               <>
                 <Link
                   to={`/event/${eventCode}/draft`}
-                  className="bg-white shadow rounded-lg p-6 hover:shadow-lg transition-shadow"
+                  className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50 rounded-lg p-6 hover:shadow-lg dark:hover:shadow-gray-900/70 transition-shadow"
                 >
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Live Draft</h3>
-                  <p className="text-gray-600">
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">Live Draft</h3>
+                  <p className="text-gray-600 dark:text-gray-400">
                     {event.status === 'COMPLETED'
                       ? 'View the completed draft results'
                       : 'Watch the live draft in progress'}
@@ -176,21 +178,21 @@ const EventPage = () => {
                 </Link>
                 <Link
                   to={`/event/${eventCode}/stats`}
-                  className="bg-white shadow rounded-lg p-6 hover:shadow-lg transition-shadow"
+                  className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50 rounded-lg p-6 hover:shadow-lg dark:hover:shadow-gray-900/70 transition-shadow"
                 >
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Stats & Rankings</h3>
-                  <p className="text-gray-600">
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">Stats & Rankings</h3>
+                  <p className="text-gray-600 dark:text-gray-400">
                     See how your predictions compare to the actual draft
                   </p>
                 </Link>
               </>
             ) : (
               user && (
-                <div className="bg-white shadow rounded-lg p-6">
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                <div className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50 rounded-lg p-6">
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
                     Waiting for Draft
                   </h3>
-                  <p className="text-gray-600">
+                  <p className="text-gray-600 dark:text-gray-400">
                     The draft hasn't started yet. Check back later!
                   </p>
                 </div>
@@ -199,11 +201,11 @@ const EventPage = () => {
           </div>
 
           {!user && (
-            <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <p className="text-blue-800">
+            <div className="mt-6 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+              <p className="text-blue-800 dark:text-blue-200">
                 <Link
                   to={`/login${eventCode ? `?eventCode=${eventCode}` : ''}`}
-                  className="font-semibold underline"
+                  className="font-semibold underline hover:no-underline"
                 >
                   Sign in with Discord
                 </Link>{' '}
