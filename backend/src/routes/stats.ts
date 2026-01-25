@@ -367,6 +367,194 @@ router.get('/:eventId/aggregate', async (req, res) => {
 	}
 })
 
+// Get a specific user's stats (public, for shared links). Returns same shape as my-stats plus userName.
+router.get('/:eventId/user/:userId', async (req, res) => {
+	try {
+	  const { eventId, userId } = req.params
+
+	  const event = await prisma.event.findUnique({
+	    where: { id: eventId },
+	    include: {
+	      teams: true,
+	      draftOrder: true,
+	      draftPicks: {
+	        include: { player: true, team: true },
+	        orderBy: { pickNumber: 'asc' },
+	      },
+	    },
+	  })
+
+	  if (!event) {
+	    return res.status(404).json({ error: 'Event not found' })
+	  }
+	  if (event.status !== 'COMPLETED') {
+	    return res.status(400).json({ error: 'Stats are not available until the draft is completed' })
+	  }
+
+	  const submission = await prisma.draftOrderSubmission.findUnique({
+	    where: {
+	      userId_eventId: { userId, eventId },
+	    },
+	    include: {
+	      user: { select: { discordUsername: true } },
+	      items: {
+	        include: { player: true },
+	        orderBy: { position: 'asc' },
+	      },
+	    },
+	  })
+
+	  if (!submission) {
+	    return res.status(404).json({ error: 'No submission found' })
+	  }
+
+	  const actualOrder = event.draftPicks.map(p => ({
+	    playerId: p.playerId,
+	    pickNumber: p.pickNumber,
+	    round: p.round,
+	    teamId: p.teamId,
+	    player: p.player,
+	    team: p.team,
+	  }))
+
+	  const userOrder = submission.items.map(item => ({
+	    playerId: item.playerId,
+	    predictedPosition: item.position,
+	    player: item.player,
+	  }))
+
+	  const numTeams = event.teams?.length ?? 0
+	  const actualTeamOrder = event.draftOrder?.teamOrder?.slice(0, numTeams) ?? []
+	  const predTeamOrder = submission.teamOrder ?? []
+	  const canDerivePredicted = numTeams > 0 && predTeamOrder.length === numTeams
+	  const teamsById = new Map((event.teams || []).map((t: { id: string; name: string }) => [t.id, t]))
+
+	  let exactMatches = 0
+	  let closeMatches = 0
+	  let correctTeamMatches = 0
+	  let correctRoundMatches = 0
+	  let playerSlotScore = 0
+	  const matchDetails: Array<{
+	    playerName: string
+	    predicted: number
+	    actual: number | null
+	    difference: number | null
+	    team: string | null
+	    predictedTeam: string | null
+	    actualTeam: string | null
+	    predictedRound: number | null
+	    actualRound: number | null
+	    correctTeam: boolean | null
+	  }> = []
+
+	  userOrder.forEach(userPick => {
+	    const actualPick = actualOrder.find(ap => ap.playerId === userPick.playerId)
+	    if (actualPick) {
+	      const difference = Math.abs(userPick.predictedPosition - actualPick.pickNumber)
+	      if (difference === 0) exactMatches++
+	      else if (difference >= 1 && difference <= 3) closeMatches++
+
+	      playerSlotScore += playerSlotPoints(difference)
+
+	      let predTeamId: string | null = null
+	      let predRound: number | null = null
+	      let correctTeam: boolean | null = null
+
+	      if (canDerivePredicted) {
+	        const slotIndex = userPick.predictedPosition - 1
+	        const { round: r, teamIndex } = slotToRoundAndTeamIndex(slotIndex, numTeams)
+	        predRound = r
+	        predTeamId = predTeamOrder[teamIndex] ?? null
+	        if (predTeamId === actualPick.teamId) {
+	          correctTeamMatches++
+	          correctTeam = true
+	        } else {
+	          correctTeam = false
+	        }
+	        if (predRound === actualPick.round) correctRoundMatches++
+	      }
+
+	      const predTeamName = predTeamId ? (teamsById.get(predTeamId)?.name ?? null) : null
+
+	      matchDetails.push({
+	        playerName: userPick.player.name,
+	        predicted: userPick.predictedPosition,
+	        actual: actualPick.pickNumber,
+	        difference,
+	        team: actualPick.team?.name ?? null,
+	        predictedTeam: predTeamName,
+	        actualTeam: actualPick.team?.name ?? null,
+	        predictedRound: predRound,
+	        actualRound: actualPick.round,
+	        correctTeam,
+	      })
+	    } else {
+	      matchDetails.push({
+	        playerName: userPick.player.name,
+	        predicted: userPick.predictedPosition,
+	        actual: null,
+	        difference: null,
+	        team: null,
+	        predictedTeam: null,
+	        actualTeam: null,
+	        predictedRound: null,
+	        actualRound: null,
+	        correctTeam: null,
+	      })
+	    }
+	  })
+
+	  const POINTS_TEAM_ORDER = 5
+	  const POINTS_CORRECT_TEAM = 3
+	  const POINTS_CORRECT_ROUND = 2
+
+	  let teamOrderExactMatches = 0
+	  if (numTeams > 0 && predTeamOrder.length === numTeams && actualTeamOrder.length === numTeams) {
+	    for (let i = 0; i < numTeams; i++) {
+	      if (predTeamOrder[i] === actualTeamOrder[i]) teamOrderExactMatches++
+	    }
+	  }
+	  const teamOrderScore = teamOrderExactMatches * POINTS_TEAM_ORDER
+	  const correctTeamScore = correctTeamMatches * POINTS_CORRECT_TEAM
+	  const correctRoundScore = correctRoundMatches * POINTS_CORRECT_ROUND
+
+	  res.json({
+	    submission: {
+	      submittedAt: submission.submittedAt,
+	      locked: submission.locked,
+	    },
+	    stats: {
+	      exactMatches,
+	      closeMatches,
+	      teamOrderExactMatches,
+	      teamOrderScore,
+	      correctTeamMatches,
+	      correctRoundMatches,
+	      correctTeamScore,
+	      correctRoundScore,
+	      playerSlotScore,
+	      score: playerSlotScore + teamOrderScore + correctTeamScore + correctRoundScore,
+	      totalPlayers: userOrder.length,
+	      categoryScores: {
+	        playerSlot: playerSlotScore,
+	        teamOrder: teamOrderScore,
+	        correctTeam: correctTeamScore,
+	        correctRound: correctRoundScore,
+	      },
+	      matchDetails: matchDetails.sort((a, b) => {
+	        if (a.actual === null) return 1
+	        if (b.actual === null) return -1
+	        return (a.difference || 0) - (b.difference || 0)
+	      }),
+	    },
+	    userName: submission.user.discordUsername,
+	  })
+	} catch (error) {
+	  console.error('Get user stats (shared) error:', error)
+	  res.status(500).json({ error: 'Failed to fetch user stats' })
+	}
+})
+
 // Get user's stats
 router.get('/:eventId/my-stats', authenticate, async (req: AuthRequest, res) => {
 	try {
