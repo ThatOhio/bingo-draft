@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from 'react'
+import { useEffect, useState, useMemo, useCallback, type ReactNode } from 'react'
 import { useParams } from 'react-router-dom'
 import axios from 'axios'
 import {
@@ -40,6 +40,34 @@ interface Submission {
 	locked: boolean
 	teamOrder?: string[]
 	items: SubmissionItem[]
+}
+
+interface DraggableCellChipProps {
+	player: Player
+	round: number
+	teamId: string
+	disabled?: boolean
+}
+
+interface DraftCellProps {
+	round: number
+	teamId: string
+	teamIndex: number
+	numTeams: number
+	totalSlots: number
+	playerId: string | undefined
+	players: Player[]
+	disabled?: boolean
+}
+
+interface PlayerPoolItemProps {
+	player: Player
+	disabled?: boolean
+}
+
+interface DroppablePoolProps {
+	children: ReactNode
+	disabled?: boolean
 }
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
@@ -168,12 +196,7 @@ function DraggableCellChip({
 	round,
 	teamId,
 	disabled,
-}: {
-	player: Player
-	round: number
-	teamId: string
-	disabled?: boolean
-}) {
+}: DraggableCellChipProps) {
 	const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
 	  id: `placed-${round}-${teamId}`,
 	  data: { playerId: player.id, round, teamId, source: 'cell' as const },
@@ -206,16 +229,7 @@ function DraftCell({
 	playerId,
 	players,
 	disabled,
-}: {
-	round: number
-	teamId: string
-	teamIndex: number
-	numTeams: number
-	totalSlots: number
-	playerId: string | undefined
-	players: Player[]
-	disabled?: boolean
-}) {
+}: DraftCellProps) {
 	const valid = isValidSlot(round, teamIndex, numTeams, totalSlots)
 	const { setNodeRef, isOver } = useDroppable({
 	  id: `cell-${round}-${teamId}`,
@@ -252,7 +266,7 @@ function DraftCell({
 /**
  * Draggable chip for a player in the pool. Can be dropped onto cells or back to the pool.
  */
-function PlayerPoolItem({ player, disabled }: { player: Player; disabled?: boolean }) {
+function PlayerPoolItem({ player, disabled }: PlayerPoolItemProps) {
 	const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
 	  id: `player-${player.id}`,
 	  data: { playerId: player.id, source: 'pool' as const },
@@ -480,6 +494,19 @@ function DraftSubmission() {
 
 	const isLocked = submission?.locked || false
 
+	const handleLockTeamOrder = () => {
+		if (playersByTeamWhenEditing) {
+			setGrid(playersByTeamToGrid(playersByTeamWhenEditing, teamOrder, numTeams, totalSlots))
+			setPlayersByTeamWhenEditing(null)
+		}
+		setTeamOrderLocked(true)
+	}
+	const handleEditTeamOrder = () => {
+		setPlayersByTeamWhenEditing(gridToPlayersByTeam(grid, teamIds, numTeams, totalSlots))
+		setTeamOrderLocked(false)
+		setGrid({})
+	}
+
 	if (loading) {
 	  return (
 	    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -564,13 +591,7 @@ function DraftSubmission() {
 	            {!isLocked && (
 	              <button
 	                type="button"
-	                onClick={() => {
-	                  if (playersByTeamWhenEditing) {
-	                    setGrid(playersByTeamToGrid(playersByTeamWhenEditing, teamOrder, numTeams, totalSlots))
-	                    setPlayersByTeamWhenEditing(null)
-	                  }
-	                  setTeamOrderLocked(true)
-	                }}
+	                onClick={handleLockTeamOrder}
 	                className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
 	              >
 	                Lock team order
@@ -595,11 +616,7 @@ function DraftSubmission() {
 	              <>
 	                <button
 	                  type="button"
-	                  onClick={() => {
-	                    setPlayersByTeamWhenEditing(gridToPlayersByTeam(grid, teamIds, numTeams, totalSlots))
-	                    setTeamOrderLocked(false)
-	                    setGrid({})
-	                  }}
+	                  onClick={handleEditTeamOrder}
 	                  className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300"
 	                >
 	                  Edit team order
@@ -750,13 +767,7 @@ function DraftSubmission() {
 /**
  * Droppable area for the player pool. Wrapper for useDroppable (hooks must be in a component).
  */
-function DroppablePool({
-	children,
-	disabled,
-}: {
-	children: React.ReactNode
-	disabled?: boolean
-}) {
+function DroppablePool({ children, disabled }: DroppablePoolProps) {
 	const { setNodeRef, isOver } = useDroppable({
 	  id: 'pool',
 	  disabled,

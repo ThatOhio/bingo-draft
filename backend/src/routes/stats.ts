@@ -76,7 +76,7 @@ router.get('/:eventId/rankings', async (req, res) => {
 	    }))
 
 	    let exactMatches = 0
-	    let closeMatches = 0; // 1 <= diff <= 3 (for display)
+	    let closeMatches = 0 // 1 <= diff <= 3 (for display)
 	    let correctTeamMatches = 0
 	    let correctRoundMatches = 0
 	    let playerSlotScore = 0

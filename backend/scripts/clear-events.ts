@@ -7,27 +7,27 @@
  * Run from backend: npx tsx scripts/clear-events.ts
  */
 
-import 'dotenv/config';
-import prisma from '../src/db';
+import 'dotenv/config'
+import prisma from '../src/db'
 
 async function main() {
   if (!process.env.DATABASE_URL) {
-    console.error('DATABASE_URL is not set. Create backend/.env from .env.example.');
-    process.exit(1);
+    console.error('DATABASE_URL is not set. Create backend/.env from .env.example.')
+    process.exit(1)
   }
 
   try {
     // Remove submission items first: they reference Player with no onDelete, so
     // Event's cascade to Player would otherwise fail (DraftOrderSubmissionItem_playerId_fkey).
-    await prisma.draftOrderSubmissionItem.deleteMany({});
-    const { count } = await prisma.event.deleteMany({});
-    console.log(`Deleted ${count} event(s).`);
+    await prisma.draftOrderSubmissionItem.deleteMany({})
+    const { count } = await prisma.event.deleteMany({})
+    console.log(`Deleted ${count} event(s).`)
   } catch (e) {
-    console.error(e);
-    process.exit(1);
+    console.error(e)
+    process.exit(1)
   } finally {
-    await prisma.$disconnect();
+    await prisma.$disconnect()
   }
 }
 
-main();
+main()

@@ -51,7 +51,11 @@ interface LiveDraftEvent {
 	status: string
 }
 
-type Captain = { id?: string; discordUsername: string; player?: Player }
+interface Captain {
+	id?: string
+	discordUsername: string
+	player?: Player
+}
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
 
@@ -228,6 +232,9 @@ function LiveDraft() {
 	const canPauseResume = isAdmin && event && (event.status === 'DRAFTING' || event.status === 'PAUSED')
 	const numTeams = draftState.teams.length || 1
 	const useWideLayout = numTeams >= 6
+	const handleSelectPlayer = (playerId: string) => () => {
+		if (canMakePick) setSelectedPlayer(playerId)
+	}
 
 	return (
 	  <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -407,7 +414,7 @@ function LiveDraft() {
 	                        key={player.id}
 	                        type="button"
 	                        title={title}
-	                        onClick={() => canMakePick && setSelectedPlayer(player.id)}
+	                        onClick={handleSelectPlayer(player.id)}
 	                        className={`inline-flex items-center px-2 py-1 rounded-md border text-sm transition-colors ${
 	                          selectedPlayer === player.id
 	                            ? 'bg-indigo-100 dark:bg-indigo-900/40 border-indigo-500 dark:border-indigo-400'
@@ -492,7 +499,7 @@ function LiveDraft() {
 	                        key={player.id}
 	                        type="button"
 	                        title={title}
-	                        onClick={() => canMakePick && setSelectedPlayer(player.id)}
+	                        onClick={handleSelectPlayer(player.id)}
 	                        className={`inline-flex items-center px-2 py-1 rounded-md border text-sm transition-colors ${
 	                          selectedPlayer === player.id
 	                            ? 'bg-indigo-100 dark:bg-indigo-900/40 border-indigo-500 dark:border-indigo-400'

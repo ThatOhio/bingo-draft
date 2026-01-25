@@ -1,3 +1,4 @@
+import { type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../contexts/auth-context'
 import { DarkModeToggle } from './dark-mode-toggle'
@@ -10,7 +11,7 @@ interface AppHeaderProps {
 	/** When set, the title becomes a link to this path (e.g. "/" for the app name on home). */
 	titleHref?: string
 	/** Optional node rendered after DarkModeToggle and before Welcome/Admin/Logout (e.g. draft controls). */
-	rightSlot?: React.ReactNode
+	rightSlot?: ReactNode
 }
 
 export function AppHeader({ backLink, title, titleHref, rightSlot }: AppHeaderProps) {
@@ -41,7 +42,10 @@ export function AppHeader({ backLink, title, titleHref, rightSlot }: AppHeaderPr
 							titleHref ? (
 								<Link
 									to={titleHref}
-									className="text-xl font-bold text-gray-900 dark:text-gray-100 hover:text-gray-700 dark:hover:text-gray-300"
+									className={
+										'text-xl font-bold text-gray-900 dark:text-gray-100 ' +
+										'hover:text-gray-700 dark:hover:text-gray-300'
+									}
 								>
 									{title}
 								</Link>
@@ -72,7 +76,10 @@ export function AppHeader({ backLink, title, titleHref, rightSlot }: AppHeaderPr
 								</button>
 							</>
 						) : (
-							<Link to={loginTo} className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
+							<Link
+								to={loginTo}
+								className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
+							>
 								Login
 							</Link>
 						)}

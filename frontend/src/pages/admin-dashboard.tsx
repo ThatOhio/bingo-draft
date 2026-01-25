@@ -149,6 +149,19 @@ function AdminDashboard() {
 	  useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
 	)
 
+	const handleTabUsers = () => setActiveTab('users')
+	const handleTabEvents = () => setActiveTab('events')
+	const handleTabCreateEvent = () => setActiveTab('create-event')
+	const handleTabEventManagement = () => setActiveTab('event-management')
+	const handleInitDraftClick = () => { if (selectedEvent) handleInitializeDraft(selectedEvent.id) }
+	const handleRemoveCaptainFor = (teamId: string, captainId: string) => () =>
+		handleRemoveCaptain(teamId, captainId)
+	const handleAddCaptainFor = (teamId: string) => () => handleAddCaptain(teamId)
+	const handleRemoveCaptainRow = (i: number) => () => createTeamCaptains.remove(i)
+	const handleAppendCaptainRow = () =>
+		createTeamCaptains.append({ playerId: '', discordUsername: '' })
+	const handleExportClick = () => { if (selectedEvent) handleExportData(selectedEvent.id) }
+
 	function getOrderedTeamIds(ed: EventDetails | null): string[] {
 	  if (!ed?.teams?.length) return []
 	  const ids = ed.teams.map((t: EventDetailsTeam) => t.id)
@@ -373,7 +386,7 @@ function AdminDashboard() {
 	          <div className="border-b border-gray-200 dark:border-gray-700">
 	            <nav className="flex -mb-px">
 	              <button
-	                onClick={() => setActiveTab('users')}
+	                onClick={handleTabUsers}
 	                className={`py-4 px-6 text-sm font-medium ${
 	                  activeTab === 'users'
 	                    ? 'border-b-2 border-indigo-500 text-indigo-600 dark:text-indigo-400'
@@ -383,7 +396,7 @@ function AdminDashboard() {
 	                Users
 	              </button>
 	              <button
-	                onClick={() => setActiveTab('events')}
+	                onClick={handleTabEvents}
 	                className={`py-4 px-6 text-sm font-medium ${
 	                  activeTab === 'events'
 	                    ? 'border-b-2 border-indigo-500 text-indigo-600 dark:text-indigo-400'
@@ -393,7 +406,7 @@ function AdminDashboard() {
 	                Events
 	              </button>
 	              <button
-	                onClick={() => setActiveTab('create-event')}
+	                onClick={handleTabCreateEvent}
 	                className={`py-4 px-6 text-sm font-medium ${
 	                  activeTab === 'create-event'
 	                    ? 'border-b-2 border-indigo-500 text-indigo-600 dark:text-indigo-400'
@@ -403,7 +416,7 @@ function AdminDashboard() {
 	                Create Event
 	              </button>
 	              <button
-	                onClick={() => setActiveTab('event-management')}
+	                onClick={handleTabEventManagement}
 	                className={`py-4 px-6 text-sm font-medium ${
 	                  activeTab === 'event-management'
 	                    ? 'border-b-2 border-indigo-500 text-indigo-600 dark:text-indigo-400'
@@ -549,7 +562,7 @@ function AdminDashboard() {
 	                        </div>
 	                        {!eventDetails.draftOrder && eventDetails.status === 'OPEN' && (
 	                          <button
-	                            onClick={() => handleInitializeDraft(selectedEvent.id)}
+	                            onClick={handleInitDraftClick}
 	                            className="mt-3 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
 	                          >
 	                            Initialize Draft
@@ -628,7 +641,7 @@ function AdminDashboard() {
 	                                    <span>{cap.player?.name} @{cap.discordUsername}</span>
 	                                    <button
 	                                      type="button"
-	                                      onClick={() => handleRemoveCaptain(team.id, cap.id)}
+	                                      onClick={handleRemoveCaptainFor(team.id, cap.id)}
 	                                      className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
 	                                    >
 	                                      Remove
@@ -672,7 +685,7 @@ function AdminDashboard() {
 	                                </div>
 	                                <button
 	                                  type="button"
-	                                  onClick={() => handleAddCaptain(team.id)}
+	                                  onClick={handleAddCaptainFor(team.id)}
 	                                  disabled={addingCaptainToTeamId === team.id || !addCaptainByTeam[team.id]?.playerId || !addCaptainByTeam[team.id]?.discordUsername?.trim()}
 	                                  className="px-3 py-1.5 bg-indigo-600 text-white rounded text-sm hover:bg-indigo-700 disabled:opacity-50"
 	                                >
@@ -727,7 +740,7 @@ function AdminDashboard() {
 	                              />
 	                              <button
 	                                type="button"
-	                                onClick={() => createTeamCaptains.remove(i)}
+	                                onClick={handleRemoveCaptainRow(i)}
 	                                className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
 	                              >
 	                                Remove
@@ -736,7 +749,7 @@ function AdminDashboard() {
 	                          ))}
 	                          <button
 	                            type="button"
-	                            onClick={() => createTeamCaptains.append({ playerId: '', discordUsername: '' })}
+	                            onClick={handleAppendCaptainRow}
 	                            className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300"
 	                          >
 	                            + Add captain
@@ -786,7 +799,7 @@ function AdminDashboard() {
 	                        Download all event data including players, teams, picks, and predictions as JSON.
 	                      </p>
 	                      <button
-	                        onClick={() => handleExportData(selectedEvent.id)}
+	                        onClick={handleExportClick}
 	                        disabled={exporting}
 	                        className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50"
 	                      >

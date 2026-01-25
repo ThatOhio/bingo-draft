@@ -511,9 +511,9 @@ function Stats() {
 	                  </tr>
 	                </thead>
 	                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-	                  {userStats.stats.matchDetails.map((match, index) => (
+	                  {userStats.stats.matchDetails.map((match) => (
 	                    <tr
-	                      key={`${match.playerName}-${match.predicted}-${index}`}
+	                      key={`${match.playerName}-${match.predicted}`}
 	                      className={
 	                        match.difference === 0
 	                          ? 'bg-green-50 dark:bg-green-900/20'
