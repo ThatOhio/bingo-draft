@@ -10,7 +10,7 @@ interface AppHeaderProps {
 	title?: string
 	/** When set, the title becomes a link to this path (e.g. "/" for the app name on home). */
 	titleHref?: string
-	/** Optional node rendered after DarkModeToggle and before Welcome/Admin/Logout (e.g. draft controls). */
+	/** Optional node after DarkModeToggle and before Welcome/Admin/Logout (e.g. draft controls). */
 	rightSlot?: ReactNode
 }
 

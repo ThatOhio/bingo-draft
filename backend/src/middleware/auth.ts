@@ -1,6 +1,9 @@
 import { Request, Response, NextFunction } from 'express'
 import jwt from 'jsonwebtoken'
 
+/**
+ * Express Request extended with user info set by the authenticate middleware.
+ */
 export interface AuthRequest extends Request {
 	userId?: string
 	userRole?: string

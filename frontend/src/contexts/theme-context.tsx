@@ -23,6 +23,10 @@ interface ThemeProviderProps {
 	children: ReactNode
 }
 
+/**
+ * Provides light/dark theme state and toggle. Syncs to document classes and
+ * localStorage. Must wrap any subtree that uses useTheme.
+ */
 export function ThemeProvider({ children }: ThemeProviderProps) {
 	const [theme, setTheme] = useState<Theme>(getInitialTheme)
 	const isDark = theme === 'dark'
@@ -49,6 +53,9 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
 	)
 }
 
+/**
+ * Returns the theme context. Throws if used outside ThemeProvider.
+ */
 export function useTheme() {
 	const ctx = useContext(ThemeContext)
 	if (!ctx) throw new Error('useTheme must be used within ThemeProvider')

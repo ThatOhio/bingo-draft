@@ -1,8 +1,13 @@
 import express from 'express'
+import { z } from 'zod'
 import prisma from '../db'
 import { authenticate, requireRole, AuthRequest } from '../middleware/auth'
 
 const router = express.Router()
+
+const updateRoleSchema = z.object({
+	role: z.enum(['USER', 'ADMIN']),
+})
 
 // Get all users (admin only)
 router.get('/', authenticate, requireRole('ADMIN'), async (req, res) => {
@@ -31,11 +36,7 @@ router.get('/', authenticate, requireRole('ADMIN'), async (req, res) => {
 router.put('/:id/role', authenticate, requireRole('ADMIN'), async (req: AuthRequest, res) => {
 	try {
 	  const { id } = req.params
-	  const { role } = req.body
-
-	  if (!['USER', 'ADMIN'].includes(role)) {
-	    return res.status(400).json({ error: 'Invalid role' })
-	  }
+	  const { role } = updateRoleSchema.parse(req.body)
 
 	  const user = await prisma.user.update({
 	    where: { id },
@@ -50,6 +51,9 @@ router.put('/:id/role', authenticate, requireRole('ADMIN'), async (req: AuthRequ
 
 	  res.json({ user })
 	} catch (error) {
+	  if (error instanceof z.ZodError) {
+	    return res.status(400).json({ error: error.errors })
+	  }
 	  console.error('Update user role error:', error)
 	  res.status(500).json({ error: 'Failed to update user role' })
 	}

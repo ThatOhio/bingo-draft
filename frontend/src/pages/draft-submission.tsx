@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback, type ReactNode } from 'react'
+import { useEffect, useState, useMemo, useCallback, memo, type ReactNode } from 'react'
 import { useParams } from 'react-router-dom'
 import axios from 'axios'
 import {
@@ -220,7 +220,7 @@ function DraggableCellChip({
 /**
  * Droppable draft cell in the board. Accepts drops from pool or other cells; shows player or placeholder.
  */
-function DraftCell({
+const DraftCell = memo(function DraftCell({
 	round,
 	teamId,
 	teamIndex,
@@ -261,12 +261,12 @@ function DraftCell({
 	    )}
 	  </td>
 	)
-}
+})
 
 /**
  * Draggable chip for a player in the pool. Can be dropped onto cells or back to the pool.
  */
-function PlayerPoolItem({ player, disabled }: PlayerPoolItemProps) {
+const PlayerPoolItem = memo(function PlayerPoolItem({ player, disabled }: PlayerPoolItemProps) {
 	const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
 	  id: `player-${player.id}`,
 	  data: { playerId: player.id, source: 'pool' as const },
@@ -288,7 +288,7 @@ function PlayerPoolItem({ player, disabled }: PlayerPoolItemProps) {
 	    <span className="font-medium text-gray-900 dark:text-gray-100 truncate max-w-[11rem]">{player.name}</span>
 	  </div>
 	)
-}
+})
 
 /**
  * Sortable team row for "Predict team draft order". Drag handle, index, and team name.

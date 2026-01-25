@@ -16,6 +16,10 @@ interface SocketProviderProps {
 	children: ReactNode
 }
 
+/**
+ * Provides a Socket.IO client instance and join/leave helpers. Must wrap any
+ * subtree that uses useSocket. Connects when the user has a token.
+ */
 export function SocketProvider({ children }: SocketProviderProps) {
 	const { token } = useAuth()
 	const [socket, setSocket] = useState<Socket | null>(null)

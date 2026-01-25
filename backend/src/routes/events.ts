@@ -35,6 +35,10 @@ const playersImportSchema = z.object({
 	})),
 })
 
+const bulkImportBodySchema = z.object({
+	text: z.string().min(1, 'Text content is required'),
+})
+
 // Get all events (public)
 router.get('/', async (req, res) => {
 	try {
@@ -266,11 +270,7 @@ router.put('/:id/team-draft-order', authenticate, requireRole('ADMIN'), async (r
 router.post('/:id/players/bulk-import', authenticate, requireRole('ADMIN'), async (req: AuthRequest, res) => {
 	try {
 	  const { id } = req.params
-	  const { text } = req.body // Text with one player per line
-
-	  if (!text || typeof text !== 'string') {
-	    return res.status(400).json({ error: 'Text content is required' })
-	  }
+	  const { text } = bulkImportBodySchema.parse(req.body)
 
 	  const event = await prisma.event.findUnique({
 	    where: { id },
@@ -308,6 +308,9 @@ router.post('/:id/players/bulk-import', authenticate, requireRole('ADMIN'), asyn
 
 	  res.json({ count: createdPlayers.count, players: createdPlayers })
 	} catch (error) {
+	  if (error instanceof z.ZodError) {
+	    return res.status(400).json({ error: error.errors })
+	  }
 	  console.error('Bulk import players error:', error)
 	  res.status(500).json({ error: 'Failed to bulk import players' })
 	}

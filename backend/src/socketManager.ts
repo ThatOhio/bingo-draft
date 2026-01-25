@@ -2,6 +2,10 @@ import { Server } from 'socket.io'
 
 let ioInstance: Server | null = null
 
+/**
+ * Stores the Socket.IO server instance for use by routes (e.g. emit to rooms).
+ * Called from the main server setup after creating the Server.
+ */
 export function setIO(io: Server): void {
 	ioInstance = io
 }

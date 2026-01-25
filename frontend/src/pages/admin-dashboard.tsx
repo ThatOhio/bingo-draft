@@ -192,7 +192,7 @@ function AdminDashboard() {
 	  fetchData()
 	}, [fetchData])
 
-	const onBulkImportSubmit = async (data: BulkImportForm, eventId: string) => {
+	const handleBulkImportSubmit = async (data: BulkImportForm, eventId: string) => {
 	  setImporting(true)
 	  try {
 	    await axios.post(`${API_URL}/api/events/${eventId}/players/bulk-import`, { text: data.text })
@@ -248,7 +248,7 @@ function AdminDashboard() {
 	  }
 	}
 
-	const onCreateTeamSubmit = async (data: CreateTeamForm) => {
+	const handleCreateTeamSubmit = async (data: CreateTeamForm) => {
 	  if (!selectedEvent) return
 	  const captains = data.captains.filter((c) => c.playerId && c.discordUsername.trim())
 	  setCreatingTeam(true)
@@ -632,7 +632,7 @@ function AdminDashboard() {
 	                      {eventDetails && (
 	                        <div className="mb-4 space-y-4">
 	                          <p className="text-sm text-gray-600 dark:text-gray-400">Current Teams ({eventDetails.teams?.length || 0}):</p>
-	                          {eventDetails.teams?.map((team: any) => (
+	                          {eventDetails.teams?.map((team: EventDetailsTeam) => (
 	                            <div key={team.id} className="border border-gray-200 dark:border-gray-600 rounded-lg p-3">
 	                              <p className="font-medium text-gray-900 dark:text-gray-100 mb-2">{team.name}</p>
 	                              <div className="space-y-2">
@@ -663,7 +663,7 @@ function AdminDashboard() {
 	                                    className="px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
 	                                  >
 	                                    <option value="">Select</option>
-	                                    {(eventDetails.players || []).map((p: any) => (
+	                                    {(eventDetails.players || []).map((p: EventDetailsPlayer) => (
 	                                      <option key={p.id} value={p.id}>{p.name}</option>
 	                                    ))}
 	                                  </select>
@@ -683,12 +683,16 @@ function AdminDashboard() {
 	                                    className="px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-sm w-36 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
 	                                  />
 	                                </div>
-	                                <button
-	                                  type="button"
-	                                  onClick={handleAddCaptainFor(team.id)}
-	                                  disabled={addingCaptainToTeamId === team.id || !addCaptainByTeam[team.id]?.playerId || !addCaptainByTeam[team.id]?.discordUsername?.trim()}
-	                                  className="px-3 py-1.5 bg-indigo-600 text-white rounded text-sm hover:bg-indigo-700 disabled:opacity-50"
-	                                >
+								<button
+								  type="button"
+								  onClick={handleAddCaptainFor(team.id)}
+								  disabled={
+								    addingCaptainToTeamId === team.id ||
+								    !addCaptainByTeam[team.id]?.playerId ||
+								    !addCaptainByTeam[team.id]?.discordUsername?.trim()
+								  }
+								  className="px-3 py-1.5 bg-indigo-600 text-white rounded text-sm hover:bg-indigo-700 disabled:opacity-50"
+								>
 	                                  {addingCaptainToTeamId === team.id ? 'Adding...' : 'Add Captain'}
 	                                </button>
 	                              </div>
@@ -698,7 +702,7 @@ function AdminDashboard() {
 	                      )}
 	                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Create new team (add captains now or later):</p>
 	                      <form
-	                        onSubmit={createTeamForm.handleSubmit(onCreateTeamSubmit)}
+	                        onSubmit={createTeamForm.handleSubmit(handleCreateTeamSubmit)}
 	                        className="space-y-3"
 	                      >
 	                        <div className="flex gap-2">
@@ -768,7 +772,7 @@ function AdminDashboard() {
 	                      </p>
 	                      <form
 	                        onSubmit={bulkImportForm.handleSubmit((data) =>
-	                          onBulkImportSubmit(data, selectedEvent.id)
+	                          handleBulkImportSubmit(data, selectedEvent.id)
 	                        )}
 	                      >
 	                        <textarea
@@ -848,7 +852,7 @@ function AdminDashboard() {
 	              <div>
 	                <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Create New Event</h2>
 	                <form
-	                  onSubmit={createEventForm.handleSubmit(onCreateEventSubmit)}
+	                  onSubmit={createEventForm.handleSubmit(handleCreateEventSubmit)}
 	                  className="max-w-2xl space-y-4"
 	                >
 	                  <div>
