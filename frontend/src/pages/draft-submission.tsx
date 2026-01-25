@@ -15,6 +15,7 @@ import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } 
 import { CSS } from '@dnd-kit/utilities'
 import { useAuth } from '../contexts/auth-context'
 import { AppHeader } from '../components/app-header'
+import { getErrorMessage } from '../utils/get-error-message'
 
 interface Player {
 	id: string
@@ -446,8 +447,8 @@ function DraftSubmission() {
 	    })
 	    setSubmission(res.data.submission)
 	    setShowSavedState(true)
-	  } catch (err: any) {
-	    setError(err.response?.data?.error || 'Failed to save prediction')
+	  } catch (err: unknown) {
+	    setError(getErrorMessage(err, 'Failed to save prediction'))
 	  } finally {
 	    setSaving(false)
 	  }

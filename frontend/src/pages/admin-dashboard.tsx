@@ -12,6 +12,7 @@ import {
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { AppHeader } from '../components/app-header'
+import { getErrorMessage } from '../utils/get-error-message'
 
 interface User {
 	id: string
@@ -31,6 +32,39 @@ interface Event {
 	  players: number
 	  teams: number
 	}
+}
+
+interface EventDetailsPlayer {
+	id: string
+	name: string
+}
+
+interface EventDetailsCaptain {
+	id: string
+	discordUsername: string
+	player?: { id: string; name: string }
+}
+
+interface EventDetailsTeam {
+	id: string
+	name: string
+	captains?: EventDetailsCaptain[]
+}
+
+interface EventDetails {
+	status: string
+	teams?: EventDetailsTeam[]
+	players?: EventDetailsPlayer[]
+	teamDraftOrder?: string[]
+	draftOrder?: { currentRound: number; currentPick: number }
+}
+
+interface CreateEventDto {
+	name: string
+	eventCode: string
+	description?: string
+	draftDeadline?: string
+	draftStartTime?: string
 }
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
@@ -82,7 +116,7 @@ function AdminDashboard() {
 	const [newTeamName, setNewTeamName] = useState('')
 	const [newTeamCaptains, setNewTeamCaptains] = useState<Array<{ playerId: string; discordUsername: string }>>([])
 	const [creatingTeam, setCreatingTeam] = useState(false)
-	const [eventDetails, setEventDetails] = useState<any>(null)
+	const [eventDetails, setEventDetails] = useState<EventDetails | null>(null)
 	const [addCaptainByTeam, setAddCaptainByTeam] = useState<Record<string, { playerId: string; discordUsername: string }>>({})
 	const [addingCaptainToTeamId, setAddingCaptainToTeamId] = useState<string | null>(null)
 	const [teamOrderIds, setTeamOrderIds] = useState<string[]>([])
@@ -95,15 +129,15 @@ function AdminDashboard() {
 	  useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
 	)
 
-	function getOrderedTeamIds(ed: any): string[] {
+	function getOrderedTeamIds(ed: EventDetails | null): string[] {
 	  if (!ed?.teams?.length) return []
-	  const ids = ed.teams.map((t: any) => t.id)
-	  if (ed.teamDraftOrder?.length === ids.length && ids.every((id: string) => ed.teamDraftOrder.includes(id)))
+	  const ids = ed.teams.map((t: EventDetailsTeam) => t.id)
+	  if (ed.teamDraftOrder?.length === ids.length && ids.every((id: string) => ed.teamDraftOrder!.includes(id)))
 	    return ed.teamDraftOrder
 	  return ed.teams
 	    .slice()
-	    .sort((a: any, b: any) => a.name.localeCompare(b.name))
-	    .map((t: any) => t.id)
+	    .sort((a: EventDetailsTeam, b: EventDetailsTeam) => a.name.localeCompare(b.name))
+	    .map((t: EventDetailsTeam) => t.id)
 	}
 
 	useEffect(() => {
@@ -140,8 +174,8 @@ function AdminDashboard() {
 	    setBulkPlayerText('')
 	    fetchEventDetails(eventId)
 	    fetchData()
-	  } catch (error: any) {
-	    alert(error.response?.data?.error || 'Failed to import players')
+	  } catch (err: unknown) {
+	    alert(getErrorMessage(err, 'Failed to import players'))
 	  } finally {
 	    setImporting(false)
 	  }
@@ -164,22 +198,13 @@ function AdminDashboard() {
 
 	  setCreatingEvent(true)
 	  try {
-	    const eventData: any = {
+	    const eventData: CreateEventDto = {
 	      name: newEventName,
 	      eventCode: newEventCode,
 	    }
-	    
-	    if (newEventDescription.trim()) {
-	      eventData.description = newEventDescription
-	    }
-	    
-	    if (newEventDraftDeadline) {
-	      eventData.draftDeadline = new Date(newEventDraftDeadline).toISOString()
-	    }
-	    
-	    if (newEventDraftStartTime) {
-	      eventData.draftStartTime = new Date(newEventDraftStartTime).toISOString()
-	    }
+	    if (newEventDescription.trim()) eventData.description = newEventDescription
+	    if (newEventDraftDeadline) eventData.draftDeadline = new Date(newEventDraftDeadline).toISOString()
+	    if (newEventDraftStartTime) eventData.draftStartTime = new Date(newEventDraftStartTime).toISOString()
 
 	    await axios.post(`${API_URL}/api/events`, eventData)
 	    alert('Event created successfully!')
@@ -190,8 +215,8 @@ function AdminDashboard() {
 	    setNewEventDraftStartTime('')
 	    fetchData()
 	    setActiveTab('events')
-	  } catch (error: any) {
-	    alert(error.response?.data?.error || 'Failed to create event')
+	  } catch (err: unknown) {
+	    alert(getErrorMessage(err, 'Failed to create event'))
 	  } finally {
 	    setCreatingEvent(false)
 	  }
@@ -224,8 +249,8 @@ function AdminDashboard() {
 	    setNewTeamCaptains([])
 	    fetchEventDetails(selectedEvent.id)
 	    fetchData()
-	  } catch (error: any) {
-	    alert(error.response?.data?.error || 'Failed to create team')
+	  } catch (err: unknown) {
+	    alert(getErrorMessage(err, 'Failed to create team'))
 	  } finally {
 	    setCreatingTeam(false)
 	  }
@@ -246,8 +271,8 @@ function AdminDashboard() {
 	    })
 	    setAddCaptainByTeam((prev) => ({ ...prev, [teamId]: { playerId: '', discordUsername: '' } }))
 	    fetchEventDetails(selectedEvent.id)
-	  } catch (error: any) {
-	    alert(error.response?.data?.error || 'Failed to add captain')
+	  } catch (err: unknown) {
+	    alert(getErrorMessage(err, 'Failed to add captain'))
 	  } finally {
 	    setAddingCaptainToTeamId(null)
 	  }
@@ -259,15 +284,16 @@ function AdminDashboard() {
 	  try {
 	    await axios.delete(`${API_URL}/api/events/${selectedEvent.id}/teams/${teamId}/captains/${captainId}`)
 	    fetchEventDetails(selectedEvent.id)
-	  } catch (error: any) {
-	    alert(error.response?.data?.error || 'Failed to remove captain')
+	  } catch (err: unknown) {
+	    alert(getErrorMessage(err, 'Failed to remove captain'))
 	  }
 	}
 
 	const handleSaveTeamDraftOrder = async () => {
-	  if (!selectedEvent || !eventDetails?.teams?.length) return
-	  const tlen = eventDetails.teams.length
-	  const ordered = teamOrderIds.length === tlen && teamOrderIds.every((id) => eventDetails.teams.some((t: any) => t.id === id))
+	  if (!selectedEvent || !eventDetails || !eventDetails.teams?.length) return
+	  const teams = eventDetails.teams
+	  const tlen = teams.length
+	  const ordered = teamOrderIds.length === tlen && teamOrderIds.every((id) => teams.some((t) => t.id === id))
 	    ? teamOrderIds
 	    : getOrderedTeamIds(eventDetails)
 	  setSavingTeamDraftOrder(true)
@@ -275,8 +301,8 @@ function AdminDashboard() {
 	    await axios.put(`${API_URL}/api/events/${selectedEvent.id}/team-draft-order`, { teamOrder: ordered })
 	    setTeamOrderIds([])
 	    fetchEventDetails(selectedEvent.id)
-	  } catch (error: any) {
-	    alert(error.response?.data?.error || 'Failed to save team draft order')
+	  } catch (err: unknown) {
+	    alert(getErrorMessage(err, 'Failed to save team draft order'))
 	  } finally {
 	    setSavingTeamDraftOrder(false)
 	  }
@@ -288,8 +314,8 @@ function AdminDashboard() {
 	    alert('Event status updated!')
 	    fetchEventDetails(eventId)
 	    fetchData()
-	  } catch (error: any) {
-	    alert(error.response?.data?.error || 'Failed to update event status')
+	  } catch (err: unknown) {
+	    alert(getErrorMessage(err, 'Failed to update event status'))
 	  }
 	}
 
@@ -303,8 +329,8 @@ function AdminDashboard() {
 	    alert('Draft initialized successfully!')
 	    fetchEventDetails(eventId)
 	    fetchData()
-	  } catch (error: any) {
-	    alert(error.response?.data?.error || 'Failed to initialize draft')
+	  } catch (err: unknown) {
+	    alert(getErrorMessage(err, 'Failed to initialize draft'))
 	  }
 	}
 
@@ -323,8 +349,8 @@ function AdminDashboard() {
 	    document.body.removeChild(link)
 	    URL.revokeObjectURL(url)
 	    alert('Data exported successfully!')
-	  } catch (error: any) {
-	    alert(error.response?.data?.error || 'Failed to export data')
+	  } catch (err: unknown) {
+	    alert(getErrorMessage(err, 'Failed to export data'))
 	  } finally {
 	    setExporting(false)
 	  }
@@ -539,20 +565,20 @@ function AdminDashboard() {
 	                    )}
 
 	                    {/* Team draft order (1st, 2nd, ... to draft). Editable until Initialize; drag to reorder. */}
-	                    {eventDetails && eventDetails.teams?.length > 0 && !eventDetails.draftOrder && (
+	                    {eventDetails && eventDetails.teams && eventDetails.teams.length > 0 && !eventDetails.draftOrder && (
 	                      <div className="bg-white dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 p-4 rounded-lg">
 	                        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Team draft order</h3>
 	                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
 	                          Drag teams to set which picks 1st, 2nd, 3rd, etc. in round 1. Locked once you Initialize Draft.
 	                        </p>
 	                        {(() => {
-	                          const tlen = eventDetails.teams.length
+	                          const teams = eventDetails.teams
+	                          const tlen = teams.length
 	                          const displayOrder =
-	                            teamOrderIds.length === tlen &&
-	                            teamOrderIds.every((id) => eventDetails.teams.some((t: any) => t.id === id))
+	                            teamOrderIds.length === tlen && teamOrderIds.every((id) => teams.some((t) => t.id === id))
 	                              ? teamOrderIds
 	                              : getOrderedTeamIds(eventDetails)
-	                          const teamById = (id: string) => eventDetails.teams.find((t: any) => t.id === id)
+	                          const teamById = (id: string) => teams.find((t) => t.id === id)
 	                          const handleTeamOrderDragEnd = (e: DragEndEvent) => {
 	                            const { active, over } = e
 	                            if (!over || active.id === over.id) return
@@ -598,7 +624,7 @@ function AdminDashboard() {
 	                            <div key={team.id} className="border border-gray-200 dark:border-gray-600 rounded-lg p-3">
 	                              <p className="font-medium text-gray-900 dark:text-gray-100 mb-2">{team.name}</p>
 	                              <div className="space-y-2">
-	                                {team.captains?.map((cap: any) => (
+	                                {team.captains?.map((cap: EventDetailsCaptain) => (
 	                                  <div key={cap.id} className="flex items-center justify-between gap-2 py-1 text-sm text-gray-900 dark:text-gray-100">
 	                                    <span>{cap.player?.name} @{cap.discordUsername}</span>
 	                                    <button
@@ -693,7 +719,7 @@ function AdminDashboard() {
 	                                className="px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-sm flex-1 max-w-[12rem] bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
 	                              >
 	                                <option value="">Player</option>
-	                                {(eventDetails?.players || []).map((p: any) => (
+	                                {(eventDetails?.players || []).map((p: EventDetailsPlayer) => (
 	                                  <option key={p.id} value={p.id}>{p.name}</option>
 	                                ))}
 	                              </select>

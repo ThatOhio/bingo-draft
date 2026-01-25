@@ -21,6 +21,12 @@ const updateEventSchema = z.object({
 	draftStartTime: z.string().datetime().optional(),
 })
 
+interface ImportPlayer {
+	name: string
+	team?: string | null
+	notes?: string | null
+}
+
 // Get all events (public)
 router.get('/', async (req, res) => {
 	try {
@@ -324,11 +330,11 @@ router.post('/:id/players/import', authenticate, requireRole('ADMIN'), async (re
 
 	  // Create new players
 	  const createdPlayers = await prisma.player.createMany({
-	    data: players.map((p: any) => ({
+	    data: (players as ImportPlayer[]).map((p) => ({
 	      eventId: id,
 	      name: p.name,
-	      team: p.team || null,
-	      notes: p.notes || null,
+	      team: p.team ?? null,
+	      notes: p.notes ?? null,
 	    })),
 	  })
 

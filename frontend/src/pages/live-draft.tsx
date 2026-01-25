@@ -4,6 +4,7 @@ import axios from 'axios'
 import { useSocket } from '../contexts/socket-context'
 import { useAuth } from '../contexts/auth-context'
 import { AppHeader } from '../components/app-header'
+import { getErrorMessage } from '../utils/get-error-message'
 
 interface Player {
 	id: string
@@ -44,13 +45,21 @@ interface DraftState {
 	currentTeam: Team | null
 }
 
+interface LiveDraftEvent {
+	id: string
+	players: Player[]
+	status: string
+}
+
+type Captain = { id?: string; discordUsername: string; player?: Player }
+
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
 
 function LiveDraft() {
 	const { eventCode } = useParams<{ eventCode: string }>()
 	const { user } = useAuth()
 	const { socket, connectToEvent } = useSocket()
-	const [event, setEvent] = useState<any>(null)
+	const [event, setEvent] = useState<LiveDraftEvent | null>(null)
 	const [draftState, setDraftState] = useState<DraftState | null>(null)
 	const [loading, setLoading] = useState(true)
 	const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null)
@@ -132,7 +141,7 @@ function LiveDraft() {
 	  const currentTeam = draftState.currentTeam
 	  const discordUsername = (user?.discordUsername ?? '').toLowerCase()
 	  const isCaptainOfCurrentTeam = !!currentTeam?.captains?.some(
-	    (c: any) => (c.discordUsername || '').toLowerCase() === discordUsername
+	    (c: Captain) => (c.discordUsername || '').toLowerCase() === discordUsername
 	  )
 
 	  if (!isAdmin && !isCaptainOfCurrentTeam) {
@@ -141,18 +150,15 @@ function LiveDraft() {
 	  }
 
 	  try {
-	    const payload: any = { playerId: selectedPlayer }
-	    // If admin and team override selected, include it
-	    if (isAdmin && selectedTeamId) {
-	      payload.teamId = selectedTeamId
-	    }
+	    const payload: { playerId: string; teamId?: string } = { playerId: selectedPlayer }
+	    if (isAdmin && selectedTeamId) payload.teamId = selectedTeamId
 
 	    await axios.post(`${API_URL}/api/draft/${event.id}/pick`, payload)
 	    setSelectedPlayer(null)
 	    setSelectedTeamId(null)
 	    // State will update via socket or polling
-	  } catch (error: any) {
-	    alert(error.response?.data?.error || 'Failed to make pick')
+	  } catch (err: unknown) {
+	    alert(getErrorMessage(err, 'Failed to make pick'))
 	  }
 	}
 
@@ -161,8 +167,8 @@ function LiveDraft() {
 	  try {
 	    await axios.post(`${API_URL}/api/draft/${event.id}/pause`)
 	    fetchEvent()
-	  } catch (error: any) {
-	    alert(error.response?.data?.error || 'Failed to pause draft')
+	  } catch (err: unknown) {
+	    alert(getErrorMessage(err, 'Failed to pause draft'))
 	  }
 	}
 
@@ -171,8 +177,8 @@ function LiveDraft() {
 	  try {
 	    await axios.post(`${API_URL}/api/draft/${event.id}/resume`)
 	    fetchEvent()
-	  } catch (error: any) {
-	    alert(error.response?.data?.error || 'Failed to resume draft')
+	  } catch (err: unknown) {
+	    alert(getErrorMessage(err, 'Failed to resume draft'))
 	  }
 	}
 
@@ -184,7 +190,7 @@ function LiveDraft() {
 	  const lastTeam = lastPick?.team
 	  const discordUsername = (user?.discordUsername ?? '').toLowerCase()
 	  const isCaptainOfLastTeam = !!lastTeam?.captains?.some(
-	    (c: any) => (c.discordUsername || '').toLowerCase() === discordUsername
+	    (c: Captain) => (c.discordUsername || '').toLowerCase() === discordUsername
 	  )
 
 	  if (!isAdmin && !isCaptainOfLastTeam) {
@@ -199,12 +205,12 @@ function LiveDraft() {
 	  try {
 	    await axios.post(`${API_URL}/api/draft/${event.id}/undo`)
 	    // State will update via socket or polling
-	  } catch (error: any) {
-	    alert(error.response?.data?.error || 'Failed to undo pick')
+	  } catch (err: unknown) {
+	    alert(getErrorMessage(err, 'Failed to undo pick'))
 	  }
 	}
 
-	if (loading || !draftState) {
+	if (loading || !draftState || !event) {
 	  return (
 	    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
 	      <div className="text-lg text-gray-600 dark:text-gray-400">Loading draft...</div>
@@ -219,7 +225,7 @@ function LiveDraft() {
 	const currentTeam = draftState?.currentTeam
 	const discordUsername = (user?.discordUsername ?? '').toLowerCase()
 	const isCaptainOfCurrentTeam = !!currentTeam?.captains?.some(
-	  (c: any) => (c.discordUsername || '').toLowerCase() === discordUsername
+	  (c: Captain) => (c.discordUsername || '').toLowerCase() === discordUsername
 	)
 	const canMakePick = user && (user.role === 'ADMIN' || isCaptainOfCurrentTeam)
 	const isAdmin = user?.role === 'ADMIN'
