@@ -185,8 +185,8 @@ function AdminDashboard() {
 	  try {
 	    await axios.put(`${API_URL}/api/users/${userId}/role`, { role: newRole })
 	    fetchData()
-	  } catch (error) {
-	    alert('Failed to update user role')
+	  } catch (err: unknown) {
+	    alert(getErrorMessage(err, 'Failed to update user role'))
 	  }
 	}
 

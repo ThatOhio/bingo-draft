@@ -336,6 +336,7 @@ function DraftSubmission() {
 	        setTeamOrderLocked(hasValidTeamOrder)
 	      }
 	    } catch (_err) {
+	      // User may not have submitted (404); treat as empty.
 	      setSubmission(null)
 	      setTeamOrder(defaultOrder)
 	      setGrid({})
@@ -343,7 +344,7 @@ function DraftSubmission() {
 	    }
 	  } catch (e) {
 	    console.error('Failed to fetch event:', e)
-	    setError('Failed to load event data')
+	    setError(getErrorMessage(e, 'Failed to load event data'))
 	  } finally {
 	    setLoading(false)
 	  }

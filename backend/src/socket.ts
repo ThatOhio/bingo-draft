@@ -20,6 +20,7 @@ export function setupSocketIO(io: Server): void {
 			socket.userRole = decoded.role
 			next()
 		} catch (err) {
+			console.error('Socket auth error:', err)
 			next(new Error('Invalid token'))
 		}
 	})

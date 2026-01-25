@@ -27,6 +27,7 @@ export function authenticate(
 		req.userRole = decoded.role
 		next()
 	} catch (err) {
+		console.error('Auth error:', err)
 		res.status(401).json({ error: 'Invalid or expired token' })
 	}
 }
