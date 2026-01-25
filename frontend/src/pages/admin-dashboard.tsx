@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useForm, useFieldArray } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import axios from 'axios'
 import {
 	DndContext,
@@ -13,6 +15,14 @@ import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } 
 import { CSS } from '@dnd-kit/utilities'
 import { AppHeader } from '../components/app-header'
 import { getErrorMessage } from '../utils/get-error-message'
+import {
+	createEventSchema,
+	createTeamSchema,
+	bulkImportSchema,
+	type CreateEventForm,
+	type CreateTeamForm,
+	type BulkImportForm,
+} from '../schemas/forms'
 
 interface User {
 	id: string
@@ -69,6 +79,9 @@ interface CreateEventDto {
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
 
+/**
+ * Sortable team row for team draft order. Drag handle, index, and team name.
+ */
 function SortableTeamRow({
 	id,
 	team,
@@ -101,21 +114,28 @@ function AdminDashboard() {
 	const [loading, setLoading] = useState(true)
 	const [activeTab, setActiveTab] = useState<'users' | 'events' | 'event-management' | 'create-event'>('users')
 	const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
-	const [bulkPlayerText, setBulkPlayerText] = useState('')
 	const [importing, setImporting] = useState(false)
-	
-	// Create event form state
-	const [newEventName, setNewEventName] = useState('')
-	const [newEventCode, setNewEventCode] = useState('')
-	const [newEventDescription, setNewEventDescription] = useState('')
-	const [newEventDraftDeadline, setNewEventDraftDeadline] = useState('')
-	const [newEventDraftStartTime, setNewEventDraftStartTime] = useState('')
 	const [creatingEvent, setCreatingEvent] = useState(false)
-	
-	// Team management state
-	const [newTeamName, setNewTeamName] = useState('')
-	const [newTeamCaptains, setNewTeamCaptains] = useState<Array<{ playerId: string; discordUsername: string }>>([])
 	const [creatingTeam, setCreatingTeam] = useState(false)
+
+	const createEventForm = useForm<CreateEventForm>({
+		resolver: zodResolver(createEventSchema),
+		defaultValues: { name: '', eventCode: '', description: '', draftDeadline: '', draftStartTime: '' },
+	})
+
+	const bulkImportForm = useForm<BulkImportForm>({
+		resolver: zodResolver(bulkImportSchema),
+		defaultValues: { text: '' },
+	})
+
+	const createTeamForm = useForm<CreateTeamForm>({
+		resolver: zodResolver(createTeamSchema),
+		defaultValues: { name: '', captains: [] },
+	})
+	const createTeamCaptains = useFieldArray({
+		control: createTeamForm.control,
+		name: 'captains',
+	})
 	const [eventDetails, setEventDetails] = useState<EventDetails | null>(null)
 	const [addCaptainByTeam, setAddCaptainByTeam] = useState<Record<string, { playerId: string; discordUsername: string }>>({})
 	const [addingCaptainToTeamId, setAddingCaptainToTeamId] = useState<string | null>(null)
@@ -159,19 +179,12 @@ function AdminDashboard() {
 	  fetchData()
 	}, [fetchData])
 
-	const handleBulkImport = async (eventId: string) => {
-	  if (!bulkPlayerText.trim()) {
-	    alert('Please enter player names')
-	    return
-	  }
-
+	const onBulkImportSubmit = async (data: BulkImportForm, eventId: string) => {
 	  setImporting(true)
 	  try {
-	    await axios.post(`${API_URL}/api/events/${eventId}/players/bulk-import`, {
-	      text: bulkPlayerText,
-	    })
+	    await axios.post(`${API_URL}/api/events/${eventId}/players/bulk-import`, { text: data.text })
 	    alert('Players imported successfully!')
-	    setBulkPlayerText('')
+	    bulkImportForm.reset()
 	    fetchEventDetails(eventId)
 	    fetchData()
 	  } catch (err: unknown) {
@@ -190,29 +203,20 @@ function AdminDashboard() {
 	  }
 	}
 
-	const handleCreateEvent = async () => {
-	  if (!newEventName.trim() || !newEventCode.trim()) {
-	    alert('Event name and code are required')
-	    return
-	  }
-
+	const onCreateEventSubmit = async (data: CreateEventForm) => {
 	  setCreatingEvent(true)
 	  try {
 	    const eventData: CreateEventDto = {
-	      name: newEventName,
-	      eventCode: newEventCode,
+	      name: data.name,
+	      eventCode: data.eventCode,
 	    }
-	    if (newEventDescription.trim()) eventData.description = newEventDescription
-	    if (newEventDraftDeadline) eventData.draftDeadline = new Date(newEventDraftDeadline).toISOString()
-	    if (newEventDraftStartTime) eventData.draftStartTime = new Date(newEventDraftStartTime).toISOString()
+	    if (data.description?.trim()) eventData.description = data.description
+	    if (data.draftDeadline) eventData.draftDeadline = new Date(data.draftDeadline).toISOString()
+	    if (data.draftStartTime) eventData.draftStartTime = new Date(data.draftStartTime).toISOString()
 
 	    await axios.post(`${API_URL}/api/events`, eventData)
 	    alert('Event created successfully!')
-	    setNewEventName('')
-	    setNewEventCode('')
-	    setNewEventDescription('')
-	    setNewEventDraftDeadline('')
-	    setNewEventDraftStartTime('')
+	    createEventForm.reset()
 	    fetchData()
 	    setActiveTab('events')
 	  } catch (err: unknown) {
@@ -231,22 +235,17 @@ function AdminDashboard() {
 	  }
 	}
 
-	const handleCreateTeam = async () => {
-	  if (!selectedEvent || !newTeamName.trim()) {
-	    alert('Please select an event and enter a team name')
-	    return
-	  }
-
-	  const captains = newTeamCaptains.filter((c) => c.playerId && c.discordUsername.trim())
+	const onCreateTeamSubmit = async (data: CreateTeamForm) => {
+	  if (!selectedEvent) return
+	  const captains = data.captains.filter((c) => c.playerId && c.discordUsername.trim())
 	  setCreatingTeam(true)
 	  try {
 	    await axios.post(`${API_URL}/api/events/${selectedEvent.id}/teams`, {
-	      name: newTeamName,
+	      name: data.name,
 	      captains: captains.map((c) => ({ playerId: c.playerId, discordUsername: c.discordUsername.trim() })),
 	    })
 	    alert('Team created successfully!')
-	    setNewTeamName('')
-	    setNewTeamCaptains([])
+	    createTeamForm.reset({ name: '', captains: [] })
 	    fetchEventDetails(selectedEvent.id)
 	    fetchData()
 	  } catch (err: unknown) {
@@ -685,38 +684,35 @@ function AdminDashboard() {
 	                        </div>
 	                      )}
 	                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Create new team (add captains now or later):</p>
-	                      <div className="space-y-3">
+	                      <form
+	                        onSubmit={createTeamForm.handleSubmit(onCreateTeamSubmit)}
+	                        className="space-y-3"
+	                      >
 	                        <div className="flex gap-2">
 	                          <input
 	                            type="text"
-	                            value={newTeamName}
-	                            onChange={(e) => setNewTeamName(e.target.value)}
 	                            placeholder="Team name *"
 	                            className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
-	                            onKeyPress={(e) => e.key === 'Enter' && handleCreateTeam()}
+	                            {...createTeamForm.register('name')}
 	                          />
 	                          <button
-	                            onClick={handleCreateTeam}
-	                            disabled={creatingTeam || !newTeamName.trim()}
+	                            type="submit"
+	                            disabled={creatingTeam}
 	                            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
 	                          >
 	                            {creatingTeam ? 'Adding...' : 'Add Team'}
 	                          </button>
 	                        </div>
+	                        {createTeamForm.formState.errors.name && (
+	                          <p className="text-sm text-red-600 dark:text-red-400">{createTeamForm.formState.errors.name.message}</p>
+	                        )}
 	                        <div>
 	                          <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Captains (player + Discord username; must already be in this event):</p>
-	                          {newTeamCaptains.map((c, i) => (
-	                            <div key={i} className="flex gap-2 items-center mb-2">
+	                          {createTeamCaptains.fields.map((field, i) => (
+	                            <div key={field.id} className="flex gap-2 items-center mb-2">
 	                              <select
-	                                value={c.playerId}
-	                                onChange={(e) =>
-	                                  setNewTeamCaptains((prev) => {
-	                                    const n = [...prev]
-	                                    n[i] = { ...n[i], playerId: e.target.value }
-	                                    return n
-	                                  })
-	                                }
 	                                className="px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-sm flex-1 max-w-[12rem] bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+	                                {...createTeamForm.register(`captains.${i}.playerId`)}
 	                              >
 	                                <option value="">Player</option>
 	                                {(eventDetails?.players || []).map((p: EventDetailsPlayer) => (
@@ -725,20 +721,13 @@ function AdminDashboard() {
 	                              </select>
 	                              <input
 	                                type="text"
-	                                value={c.discordUsername}
-	                                onChange={(e) =>
-	                                  setNewTeamCaptains((prev) => {
-	                                    const n = [...prev]
-	                                    n[i] = { ...n[i], discordUsername: e.target.value }
-	                                    return n
-	                                  })
-	                                }
 	                                placeholder="Discord username"
 	                                className="px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-sm flex-1 max-w-[10rem] bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
+	                                {...createTeamForm.register(`captains.${i}.discordUsername`)}
 	                              />
 	                              <button
 	                                type="button"
-	                                onClick={() => setNewTeamCaptains((prev) => prev.filter((_, j) => j !== i))}
+	                                onClick={() => createTeamCaptains.remove(i)}
 	                                className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
 	                              >
 	                                Remove
@@ -747,13 +736,13 @@ function AdminDashboard() {
 	                          ))}
 	                          <button
 	                            type="button"
-	                            onClick={() => setNewTeamCaptains((prev) => [...prev, { playerId: '', discordUsername: '' }])}
+	                            onClick={() => createTeamCaptains.append({ playerId: '', discordUsername: '' })}
 	                            className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300"
 	                          >
 	                            + Add captain
 	                          </button>
 	                        </div>
-	                      </div>
+	                      </form>
 	                    </div>
 
 	                    {/* Bulk Player Import */}
@@ -764,19 +753,27 @@ function AdminDashboard() {
 	                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
 	                        Paste player names, one per line. Optional format: Name | Team | Notes
 	                      </p>
-	                      <textarea
-	                        value={bulkPlayerText}
-	                        onChange={(e) => setBulkPlayerText(e.target.value)}
-	                        placeholder="Player 1&#10;Player 2 | Team A&#10;Player 3 | Team B | Notes here"
-	                        className="w-full h-48 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
-	                      />
-	                      <button
-	                        onClick={() => handleBulkImport(selectedEvent.id)}
-	                        disabled={importing || !bulkPlayerText.trim()}
-	                        className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+	                      <form
+	                        onSubmit={bulkImportForm.handleSubmit((data) =>
+	                          onBulkImportSubmit(data, selectedEvent.id)
+	                        )}
 	                      >
-	                        {importing ? 'Importing...' : 'Import Players'}
-	                      </button>
+	                        <textarea
+	                          placeholder="Player 1&#10;Player 2 | Team A&#10;Player 3 | Team B | Notes here"
+	                          className="w-full h-48 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
+	                          {...bulkImportForm.register('text')}
+	                        />
+	                        {bulkImportForm.formState.errors.text && (
+	                          <p className="text-sm text-red-600 dark:text-red-400 mt-1">{bulkImportForm.formState.errors.text.message}</p>
+	                        )}
+	                        <button
+	                          type="submit"
+	                          disabled={importing}
+	                          className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+	                        >
+	                          {importing ? 'Importing...' : 'Import Players'}
+	                        </button>
+	                      </form>
 	                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
 	                        This will replace all existing players for this event.
 	                      </p>
@@ -837,18 +834,23 @@ function AdminDashboard() {
 	            {activeTab === 'create-event' && (
 	              <div>
 	                <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Create New Event</h2>
-	                <div className="max-w-2xl space-y-4">
+	                <form
+	                  onSubmit={createEventForm.handleSubmit(onCreateEventSubmit)}
+	                  className="max-w-2xl space-y-4"
+	                >
 	                  <div>
 	                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
 	                      Event Name *
 	                    </label>
 	                    <input
 	                      type="text"
-	                      value={newEventName}
-	                      onChange={(e) => setNewEventName(e.target.value)}
 	                      placeholder="My Awesome Draft Event"
 	                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
+	                      {...createEventForm.register('name')}
 	                    />
+	                    {createEventForm.formState.errors.name && (
+	                      <p className="text-sm text-red-600 dark:text-red-400 mt-1">{createEventForm.formState.errors.name.message}</p>
+	                    )}
 	                  </div>
 
 	                  <div>
@@ -857,12 +859,14 @@ function AdminDashboard() {
 	                    </label>
 	                    <input
 	                      type="text"
-	                      value={newEventCode}
-	                      onChange={(e) => setNewEventCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
 	                      placeholder="DRAFT2024"
 	                      maxLength={20}
 	                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
+	                      {...createEventForm.register('eventCode')}
 	                    />
+	                    {createEventForm.formState.errors.eventCode && (
+	                      <p className="text-sm text-red-600 dark:text-red-400 mt-1">{createEventForm.formState.errors.eventCode.message}</p>
+	                    )}
 	                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
 	                      Short identifier for the event URL (e.g. /event/MYCODE). Letters and numbers only.
 	                    </p>
@@ -873,11 +877,10 @@ function AdminDashboard() {
 	                      Description (optional)
 	                    </label>
 	                    <textarea
-	                      value={newEventDescription}
-	                      onChange={(e) => setNewEventDescription(e.target.value)}
 	                      placeholder="Event description and rules..."
 	                      rows={3}
 	                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
+	                      {...createEventForm.register('description')}
 	                    />
 	                  </div>
 
@@ -888,9 +891,8 @@ function AdminDashboard() {
 	                      </label>
 	                      <input
 	                        type="datetime-local"
-	                        value={newEventDraftDeadline}
-	                        onChange={(e) => setNewEventDraftDeadline(e.target.value)}
 	                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+	                        {...createEventForm.register('draftDeadline')}
 	                      />
 	                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
 	                        When predictions lock
@@ -903,9 +905,8 @@ function AdminDashboard() {
 	                      </label>
 	                      <input
 	                        type="datetime-local"
-	                        value={newEventDraftStartTime}
-	                        onChange={(e) => setNewEventDraftStartTime(e.target.value)}
 	                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+	                        {...createEventForm.register('draftStartTime')}
 	                      />
 	                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
 	                        When live draft begins
@@ -915,14 +916,14 @@ function AdminDashboard() {
 
 	                  <div className="pt-4">
 	                    <button
-	                      onClick={handleCreateEvent}
-	                      disabled={creatingEvent || !newEventName.trim() || !newEventCode.trim()}
+	                      type="submit"
+	                      disabled={creatingEvent}
 	                      className="px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
 	                    >
 	                      {creatingEvent ? 'Creating...' : 'Create Event'}
 	                    </button>
 	                  </div>
-	                </div>
+	                </form>
 	              </div>
 	            )}
 	          </div>

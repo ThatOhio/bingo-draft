@@ -141,7 +141,10 @@ router.get('/:eventId/my-submission', authenticate, async (req: AuthRequest, res
 	}
 })
 
-// Initialize draft order (snake format) (admin only). Uses event.teamDraftOrder if set and valid, else teams by name.
+/**
+ * Initialize draft order (snake format). Admin only.
+ * Uses event.teamDraftOrder if set and valid; else teams by name.
+ */
 router.post('/:eventId/initialize', authenticate, requireRole('ADMIN'), async (req: AuthRequest, res) => {
 	try {
 	  const { eventId } = req.params

@@ -45,6 +45,10 @@ interface Submission {
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
 
 // --- Snake order helpers (must match backend) ---
+
+/**
+ * Converts a 0-based slot index to round (1-based) and team index in snake order.
+ */
 function slotToRoundAndTeamIndex(
 	slotIndex: number,
 	numTeams: number
@@ -55,6 +59,9 @@ function slotToRoundAndTeamIndex(
 	return { round, teamIndex }
 }
 
+/**
+ * Converts round (1-based) and team index to 0-based slot index in snake order.
+ */
 function roundAndTeamIndexToSlot(round: number, teamIndex: number, numTeams: number): number {
 	return (round - 1) * numTeams + (round % 2 === 1 ? teamIndex : numTeams - 1 - teamIndex)
 }
@@ -63,8 +70,10 @@ function isValidSlot(round: number, teamIndex: number, numTeams: number, totalSl
 	return roundAndTeamIndexToSlot(round, teamIndex, numTeams) < totalSlots
 }
 
-// Convert grid to placements: { playerId, position } where position is 1-based pick number (slot).
-// This preserves each player's actual board position for partial saves.
+/**
+ * Converts grid (round-teamId -> playerId) to placements for API. Position is 1-based pick number.
+ * Preserves each player's board position for partial saves.
+ */
 function gridToPlacements(
 	grid: Record<string, string>,
 	teamIds: string[],
@@ -88,7 +97,9 @@ function gridToPlacements(
 	return placements
 }
 
-// Convert submission items (position 1-based) to grid
+/**
+ * Converts submission items (position 1-based) to grid keyed by round-teamId.
+ */
 function submissionToGrid(
 	items: SubmissionItem[],
 	teamIds: string[],
@@ -104,8 +115,10 @@ function submissionToGrid(
 	return grid
 }
 
-// Extract from grid: for each teamId, round -> playerId. Used when editing team order so we can
-// rebuild the grid after reorder: each team keeps its same players in the same pick order.
+/**
+ * Extracts from grid: for each teamId, round -> playerId. Used when editing team order to
+ * rebuild the grid after reorder; each team keeps its players in the same round/pick order.
+ */
 function gridToPlayersByTeam(
 	grid: Record<string, string>,
 	teamIds: string[],
@@ -127,8 +140,10 @@ function gridToPlayersByTeam(
 	return byTeam
 }
 
-// Rebuild grid from playersByTeam and a (possibly new) team order. Each team's players stay
-// with that team in the same round/pick order; only the columns (team order) change.
+/**
+ * Rebuilds grid from playersByTeam and a (possibly new) team order. Each team's players stay
+ * with that team in the same round/pick order; only the columns (team order) change.
+ */
 function playersByTeamToGrid(
 	playersByTeam: Record<string, Record<number, string>>,
 	teamIds: string[],
@@ -145,7 +160,9 @@ function playersByTeamToGrid(
 	return grid
 }
 
-// --- Draggable chip (used in a filled cell) ---
+/**
+ * Draggable chip for a player placed in a draft cell. Used when the cell is filled.
+ */
 function DraggableCellChip({
 	player,
 	round,
@@ -177,7 +194,9 @@ function DraggableCellChip({
 	)
 }
 
-// --- Droppable cell ---
+/**
+ * Droppable draft cell in the board. Accepts drops from pool or other cells; shows player or placeholder.
+ */
 function DraftCell({
 	round,
 	teamId,
@@ -230,7 +249,9 @@ function DraftCell({
 	)
 }
 
-// --- Pool droppable + draggable items (compact chips that wrap) ---
+/**
+ * Draggable chip for a player in the pool. Can be dropped onto cells or back to the pool.
+ */
 function PlayerPoolItem({ player, disabled }: { player: Player; disabled?: boolean }) {
 	const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
 	  id: `player-${player.id}`,
@@ -255,7 +276,9 @@ function PlayerPoolItem({ player, disabled }: { player: Player; disabled?: boole
 	)
 }
 
-// --- Sortable team row for "Predict team draft order" ---
+/**
+ * Sortable team row for "Predict team draft order". Drag handle, index, and team name.
+ */
 function SortableTeamRowPrediction({
 	id,
 	team,
@@ -724,7 +747,9 @@ function DraftSubmission() {
 	)
 }
 
-// Wrapper so we can use useDroppable (hooks must be in a component)
+/**
+ * Droppable area for the player pool. Wrapper for useDroppable (hooks must be in a component).
+ */
 function DroppablePool({
 	children,
 	disabled,
