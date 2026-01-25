@@ -27,6 +27,14 @@ interface ImportPlayer {
 	notes?: string | null
 }
 
+const playersImportSchema = z.object({
+	players: z.array(z.object({
+		name: z.string().min(1),
+		team: z.string().nullish(),
+		notes: z.string().nullish(),
+	})),
+})
+
 // Get all events (public)
 router.get('/', async (req, res) => {
 	try {
@@ -309,11 +317,7 @@ router.post('/:id/players/bulk-import', authenticate, requireRole('ADMIN'), asyn
 router.post('/:id/players/import', authenticate, requireRole('ADMIN'), async (req: AuthRequest, res) => {
 	try {
 	  const { id } = req.params
-	  const { players } = req.body
-
-	  if (!Array.isArray(players)) {
-	    return res.status(400).json({ error: 'Players must be an array' })
-	  }
+	  const { players } = playersImportSchema.parse(req.body)
 
 	  const event = await prisma.event.findUnique({
 	    where: { id },
@@ -323,14 +327,12 @@ router.post('/:id/players/import', authenticate, requireRole('ADMIN'), async (re
 	    return res.status(404).json({ error: 'Event not found' })
 	  }
 
-	  // Delete existing players
 	  await prisma.player.deleteMany({
 	    where: { eventId: id },
 	  })
 
-	  // Create new players
 	  const createdPlayers = await prisma.player.createMany({
-	    data: (players as ImportPlayer[]).map((p) => ({
+	    data: players.map((p) => ({
 	      eventId: id,
 	      name: p.name,
 	      team: p.team ?? null,
@@ -340,6 +342,9 @@ router.post('/:id/players/import', authenticate, requireRole('ADMIN'), async (re
 
 	  res.json({ count: createdPlayers.count })
 	} catch (error) {
+	  if (error instanceof z.ZodError) {
+	    return res.status(400).json({ error: error.errors })
+	  }
 	  console.error('Import players error:', error)
 	  res.status(500).json({ error: 'Failed to import players' })
 	}

@@ -2,7 +2,7 @@ import express from 'express'
 import axios from 'axios'
 import jwt from 'jsonwebtoken'
 import prisma from '../db'
-import { JWT_SECRET } from '../middleware/auth'
+import { authenticate, AuthRequest, JWT_SECRET } from '../middleware/auth'
 
 const router = express.Router()
 
@@ -97,15 +97,10 @@ router.get('/discord/url', (req, res) => {
 	res.json({ url: discordAuthUrl })
 })
 
-router.get('/me', async (req, res) => {
+router.get('/me', authenticate, async (req: AuthRequest, res) => {
 	try {
-		const token = req.headers.authorization?.replace('Bearer ', '')
-		if (!token) {
-			return res.status(401).json({ error: 'Authentication required' })
-		}
-		const decoded = jwt.verify(token, JWT_SECRET) as { userId: string }
 		const user = await prisma.user.findUnique({
-			where: { id: decoded.userId },
+			where: { id: req.userId },
 			select: {
 				id: true,
 				discordId: true,
@@ -117,8 +112,9 @@ router.get('/me', async (req, res) => {
 			return res.status(404).json({ error: 'User not found' })
 		}
 		res.json({ user })
-	} catch (_err) {
-		res.status(401).json({ error: 'Invalid token' })
+	} catch (err) {
+		console.error('/me error:', err)
+		res.status(500).json({ error: 'Failed to fetch user' })
 	}
 })
 

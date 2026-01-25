@@ -19,7 +19,11 @@ interface ThemeContextValue {
 
 const ThemeContext = createContext<ThemeContextValue | null>(null)
 
-export function ThemeProvider({ children }: { children: ReactNode }) {
+interface ThemeProviderProps {
+	children: ReactNode
+}
+
+export function ThemeProvider({ children }: ThemeProviderProps) {
 	const [theme, setTheme] = useState<Theme>(getInitialTheme)
 	const isDark = theme === 'dark'
 
