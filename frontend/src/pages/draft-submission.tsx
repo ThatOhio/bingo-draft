@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import axios from 'axios'
 import {
@@ -307,11 +307,7 @@ function DraftSubmission() {
 	  })
 	)
 
-	useEffect(() => {
-	  if (eventCode) fetchEventData()
-	}, [eventCode])
-
-	const fetchEventData = async () => {
+	const fetchEventData = useCallback(async () => {
 	  try {
 	    const eventResponse = await axios.get(`${API_URL}/api/events/code/${eventCode}`)
 	    const ev = eventResponse.data.event
@@ -351,7 +347,11 @@ function DraftSubmission() {
 	  } finally {
 	    setLoading(false)
 	  }
-	}
+	}, [eventCode])
+
+	useEffect(() => {
+	  if (eventCode) fetchEventData()
+	}, [eventCode, fetchEventData])
 
 	const teamIds = useMemo(() => teamOrder.length > 0 ? teamOrder : (event?.teams || []).map((t) => t.id), [teamOrder, event?.teams])
 	const numTeams = teamIds.length || 1

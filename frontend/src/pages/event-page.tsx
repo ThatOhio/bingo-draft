@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import axios from 'axios'
 import { useAuth } from '../contexts/auth-context'
@@ -28,16 +28,8 @@ function EventPage() {
 	const [loading, setLoading] = useState(true)
 	const [hasSubmission, setHasSubmission] = useState(false)
 
-	useEffect(() => {
-		if (eventCode) {
-			fetchEvent()
-			if (user) {
-				checkSubmission()
-			}
-		}
-	}, [eventCode, user])
-
-	const fetchEvent = async () => {
+	const fetchEvent = useCallback(async () => {
+		if (!eventCode) return
 		try {
 			const response = await axios.get(`${API_URL}/api/events/code/${eventCode}`)
 			setEvent(response.data.event)
@@ -46,9 +38,9 @@ function EventPage() {
 		} finally {
 			setLoading(false)
 		}
-	}
+	}, [eventCode])
 
-	const checkSubmission = async () => {
+	const checkSubmission = useCallback(async () => {
 		if (!user || !eventCode) return
 		try {
 			const eventResponse = await axios.get(`${API_URL}/api/events/code/${eventCode}`)
@@ -59,7 +51,14 @@ function EventPage() {
 			// No submission yet
 			setHasSubmission(false)
 		}
-	}
+	}, [user, eventCode])
+
+	useEffect(() => {
+		if (eventCode) {
+			fetchEvent()
+			if (user) checkSubmission()
+		}
+	}, [eventCode, user, fetchEvent, checkSubmission])
 
 	if (loading) {
 		return (

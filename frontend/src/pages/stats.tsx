@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import axios from 'axios'
 import { useAuth } from '../contexts/auth-context'
@@ -137,13 +137,7 @@ function Stats() {
 	const [aggregate, setAggregate] = useState<AggregateStats | null>(null)
 	const [loading, setLoading] = useState(true)
 
-	useEffect(() => {
-	  if (eventCode) {
-	    fetchData()
-	  }
-	}, [eventCode, user])
-
-	const fetchData = async () => {
+	const fetchData = useCallback(async () => {
 	  try {
 	    const eventResponse = await axios.get(`${API_URL}/api/events/code/${eventCode}`)
 	    const eventId = eventResponse.data.event.id
@@ -168,7 +162,13 @@ function Stats() {
 	  } finally {
 	    setLoading(false)
 	  }
-	}
+	}, [eventCode, user])
+
+	useEffect(() => {
+	  if (eventCode) {
+	    fetchData()
+	  }
+	}, [eventCode, user, fetchData])
 
 	if (loading) {
 	  return (

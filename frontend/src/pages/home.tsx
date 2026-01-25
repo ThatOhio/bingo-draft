@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import axios from 'axios'
 import { AppHeader } from '../components/app-header'
@@ -24,11 +24,7 @@ function Home() {
 	const [events, setEvents] = useState<Event[]>([])
 	const [loading, setLoading] = useState(true)
 
-	useEffect(() => {
-		fetchEvents()
-	}, [])
-
-	const fetchEvents = async () => {
+	const fetchEvents = useCallback(async () => {
 		try {
 			const response = await axios.get(`${API_URL}/api/events`)
 			setEvents(response.data.events)
@@ -37,7 +33,11 @@ function Home() {
 		} finally {
 			setLoading(false)
 		}
-	}
+	}, [])
+
+	useEffect(() => {
+		fetchEvents()
+	}, [fetchEvents])
 
 	return (
 		<div className="min-h-screen bg-gray-50 dark:bg-gray-900">

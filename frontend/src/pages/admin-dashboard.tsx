@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import axios from 'axios'
 import {
@@ -140,11 +140,7 @@ function AdminDashboard() {
 	    .map((t: EventDetailsTeam) => t.id)
 	}
 
-	useEffect(() => {
-	  fetchData()
-	}, [])
-
-	const fetchData = async () => {
+	const fetchData = useCallback(async () => {
 	  try {
 	    const [usersResponse, eventsResponse] = await Promise.all([
 	      axios.get(`${API_URL}/api/users`),
@@ -157,7 +153,11 @@ function AdminDashboard() {
 	  } finally {
 	    setLoading(false)
 	  }
-	}
+	}, [])
+
+	useEffect(() => {
+	  fetchData()
+	}, [fetchData])
 
 	const handleBulkImport = async (eventId: string) => {
 	  if (!bulkPlayerText.trim()) {

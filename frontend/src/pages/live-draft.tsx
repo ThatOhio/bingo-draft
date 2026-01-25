@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import axios from 'axios'
 import { useSocket } from '../contexts/socket-context'
@@ -66,16 +66,37 @@ function LiveDraft() {
 	const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null) // For admin override
 	const [searchTerm, setSearchTerm] = useState('')
 
+	const fetchEvent = useCallback(async () => {
+	  try {
+	    const response = await axios.get(`${API_URL}/api/events/code/${eventCode}`)
+	    setEvent(response.data.event)
+	  } catch (error) {
+	    console.error('Failed to fetch event:', error)
+	  } finally {
+	    setLoading(false)
+	  }
+	}, [eventCode])
+
+	const fetchDraftState = useCallback(async () => {
+	  if (!event) return
+	  try {
+	    const response = await axios.get(`${API_URL}/api/draft/${event.id}/state`)
+	    setDraftState(response.data)
+	  } catch (error) {
+	    console.error('Failed to fetch draft state:', error)
+	  }
+	}, [event])
+
 	useEffect(() => {
 	  if (eventCode) {
 	    fetchEvent()
 	  }
-	}, [eventCode])
+	}, [eventCode, fetchEvent])
 
 	useEffect(() => {
 	  if (event && socket) {
 	    connectToEvent(event.id)
-	    
+
 	    socket.on('draft-update', (data: DraftState) => {
 	      setDraftState(data)
 	    })
@@ -85,15 +106,11 @@ function LiveDraft() {
 	    })
 
 	    socket.on('draft-paused', () => {
-	      if (event) {
-	        fetchEvent(); // Refresh event status
-	      }
+	      if (event) fetchEvent()
 	    })
 
 	    socket.on('draft-resumed', () => {
-	      if (event) {
-	        fetchEvent(); // Refresh event status
-	      }
+	      if (event) fetchEvent()
 	    })
 
 	    return () => {
@@ -103,36 +120,15 @@ function LiveDraft() {
 	      socket.off('draft-resumed')
 	    }
 	  }
-	}, [event, socket, connectToEvent])
+	}, [event, socket, connectToEvent, fetchEvent])
 
 	useEffect(() => {
 	  if (event) {
 	    fetchDraftState()
-	    const interval = setInterval(fetchDraftState, 2000) // Poll every 2 seconds as fallback
+	    const interval = setInterval(fetchDraftState, 2000)
 	    return () => clearInterval(interval)
 	  }
-	}, [event])
-
-	const fetchEvent = async () => {
-	  try {
-	    const response = await axios.get(`${API_URL}/api/events/code/${eventCode}`)
-	    setEvent(response.data.event)
-	  } catch (error) {
-	    console.error('Failed to fetch event:', error)
-	  } finally {
-	    setLoading(false)
-	  }
-	}
-
-	const fetchDraftState = async () => {
-	  if (!event) return
-	  try {
-	    const response = await axios.get(`${API_URL}/api/draft/${event.id}/state`)
-	    setDraftState(response.data)
-	  } catch (error) {
-	    console.error('Failed to fetch draft state:', error)
-	  }
-	}
+	}, [event, fetchDraftState])
 
 	const handleMakePick = async () => {
 	  if (!selectedPlayer || !event || !draftState) return

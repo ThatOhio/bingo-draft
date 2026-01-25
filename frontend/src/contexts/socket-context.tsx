@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react'
 import { io, Socket } from 'socket.io-client'
 import { useAuth } from './auth-context'
 
@@ -44,17 +44,13 @@ export function SocketProvider({ children }: SocketProviderProps) {
 		}
 	}, [token])
 
-	const connectToEvent = (eventId: string) => {
-		if (socket) {
-			socket.emit('join-event', eventId)
-		}
-	}
+	const connectToEvent = useCallback((eventId: string) => {
+		if (socket) socket.emit('join-event', eventId)
+	}, [socket])
 
-	const disconnectFromEvent = (eventId: string) => {
-		if (socket) {
-			socket.emit('leave-event', eventId)
-		}
-	}
+	const disconnectFromEvent = useCallback((eventId: string) => {
+		if (socket) socket.emit('leave-event', eventId)
+	}, [socket])
 
 	return (
 		<SocketContext.Provider value={{ socket, connectToEvent, disconnectFromEvent }}>
