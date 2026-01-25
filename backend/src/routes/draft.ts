@@ -259,11 +259,6 @@ router.post('/:eventId/pick', authenticate, async (req: AuthRequest, res) => {
 	    return res.status(403).json({ error: 'Only the current team\'s captains and admins can make picks' })
 	  }
 
-	  let targetTeamId = currentTeamId
-	  if (isAdmin && req.body.teamId) {
-	    targetTeamId = req.body.teamId
-	  }
-
 	  // Check if player exists and is available
 	  const player = event.players.find(p => p.id === playerId)
 	  if (!player) {
@@ -286,11 +281,11 @@ router.post('/:eventId/pick', authenticate, async (req: AuthRequest, res) => {
 	  const round = event.draftOrder.currentRound
 	  const pickNumber = event.draftOrder.currentPick + 1
 
-	  // Create pick
+	  // Create pick (admins and captains both pick for the current team only)
 	  const pick = await prisma.draftPick.create({
 	    data: {
 	      eventId,
-	      teamId: targetTeamId,
+	      teamId: currentTeamId,
 	      playerId,
 	      round,
 	      pickNumber,
@@ -454,14 +449,13 @@ router.get('/:eventId/state', async (req, res) => {
 	}
 })
 
-// Undo last pick (admin or captain of the team that made the last pick)
-router.post('/:eventId/undo', authenticate, async (req: AuthRequest, res) => {
+// Undo last pick (admin only)
+router.post('/:eventId/undo', authenticate, requireRole('ADMIN'), async (req: AuthRequest, res) => {
 	try {
 	  const { eventId } = req.params
 
 	  const event = await prisma.event.findUnique({
 	    where: { id: eventId },
-	    include: { teams: { include: { captains: true } } },
 	  })
 
 	  if (!event) {
@@ -471,25 +465,10 @@ router.post('/:eventId/undo', authenticate, async (req: AuthRequest, res) => {
 	  const lastPick = await prisma.draftPick.findFirst({
 	    where: { eventId },
 	    orderBy: { pickNumber: 'desc' },
-	    include: { team: { include: { captains: true } } },
 	  })
 
 	  if (!lastPick) {
 	    return res.status(400).json({ error: 'No picks to undo' })
-	  }
-
-	  const isAdmin = req.userRole === 'ADMIN'
-	  const requestingUser = await prisma.user.findUnique({
-	    where: { id: req.userId! },
-	    select: { discordUsername: true },
-	  })
-	  const discordUsername = requestingUser?.discordUsername?.toLowerCase() ?? ''
-	  const isCaptainOfLastPickTeam = !!lastPick.team?.captains?.some(
-	    (c) => c.discordUsername.toLowerCase() === discordUsername
-	  )
-
-	  if (!isAdmin && !isCaptainOfLastPickTeam) {
-	    return res.status(403).json({ error: 'Insufficient permissions' })
 	  }
 
 	  // Delete last pick

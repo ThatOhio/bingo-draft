@@ -216,7 +216,7 @@ After the draft completes, open the Stats page for leaderboard rankings and pred
 - `POST /api/draft/:eventId/initialize` - Initialize draft (admin)
 - `POST /api/draft/:eventId/pick` - Make a pick (admin or captain of the current team)
 - `GET /api/draft/:eventId/state` - Get current draft state
-- `POST /api/draft/:eventId/undo` - Undo last pick (admin or captain of the team that picked)
+- `POST /api/draft/:eventId/undo` - Undo last pick (admin only)
 
 ### Stats
 - `GET /api/stats/:eventId/rankings` - Get all rankings

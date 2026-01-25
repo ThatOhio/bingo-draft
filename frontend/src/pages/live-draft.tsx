@@ -67,7 +67,6 @@ function LiveDraft() {
 	const [draftState, setDraftState] = useState<DraftState | null>(null)
 	const [loading, setLoading] = useState(true)
 	const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null)
-	const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null) // For admin override
 	const [searchTerm, setSearchTerm] = useState('')
 
 	const fetchEvent = useCallback(async () => {
@@ -150,12 +149,8 @@ function LiveDraft() {
 	  }
 
 	  try {
-	    const payload: { playerId: string; teamId?: string } = { playerId: selectedPlayer }
-	    if (isAdmin && selectedTeamId) payload.teamId = selectedTeamId
-
-	    await axios.post(`${API_URL}/api/draft/${event.id}/pick`, payload)
+	    await axios.post(`${API_URL}/api/draft/${event.id}/pick`, { playerId: selectedPlayer })
 	    setSelectedPlayer(null)
-	    setSelectedTeamId(null)
 	    // State will update via socket or polling
 	  } catch (err: unknown) {
 	    alert(getErrorMessage(err, 'Failed to make pick'))
@@ -183,25 +178,8 @@ function LiveDraft() {
 	}
 
 	const handleUndo = async () => {
-	  if (!event) return
-
-	  const isAdmin = user?.role === 'ADMIN'
-	  const lastPick = draftState?.picks?.length ? draftState.picks[draftState.picks.length - 1] : null
-	  const lastTeam = lastPick?.team
-	  const discordUsername = (user?.discordUsername ?? '').toLowerCase()
-	  const isCaptainOfLastTeam = !!lastTeam?.captains?.some(
-	    (c: Captain) => (c.discordUsername || '').toLowerCase() === discordUsername
-	  )
-
-	  if (!isAdmin && !isCaptainOfLastTeam) {
-	    alert('Only the picking team\'s captains and admins can undo')
-	    return
-	  }
-
-	  if (!confirm('Are you sure you want to undo the last pick?')) {
-	    return
-	  }
-
+	  if (!event || user?.role !== 'ADMIN') return
+	  if (!confirm('Are you sure you want to undo the last pick?')) return
 	  try {
 	    await axios.post(`${API_URL}/api/draft/${event.id}/undo`)
 	    // State will update via socket or polling
@@ -242,7 +220,7 @@ function LiveDraft() {
 	      backLink={`/event/${eventCode}`}
 	      title="Live Draft"
 	      rightSlot={
-	        canMakePick ? (
+	        canPauseResume || isAdmin ? (
 	          <div className="flex gap-2">
 	            {canPauseResume && (
 	              <>
@@ -264,12 +242,14 @@ function LiveDraft() {
 	                )}
 	              </>
 	            )}
-	            <button
-	              onClick={handleUndo}
-	              className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-	            >
-	              Undo Last Pick
-	            </button>
+	            {isAdmin && (
+	              <button
+	                onClick={handleUndo}
+	                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+	              >
+	                Undo Last Pick
+	              </button>
+	            )}
 	          </div>
 	        ) : undefined
 	      }
@@ -427,29 +407,7 @@ function LiveDraft() {
 	                  })}
 	                </div>
 	                {canMakePick && selectedPlayer && (
-	                  <div className="mt-4 space-y-3">
-	                    {isAdmin && draftState.teams.length > 0 && (
-	                      <div>
-	                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-	                          Override Team (Admin Only)
-	                        </label>
-	                        <select
-	                          value={selectedTeamId || ''}
-	                          onChange={(e) => setSelectedTeamId(e.target.value || null)}
-	                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-	                        >
-	                          <option value="">Use Current Team</option>
-	                          {draftState.teams.map((team) => (
-	                            <option key={team.id} value={team.id}>
-	                              {team.name}
-	                            </option>
-	                          ))}
-	                        </select>
-	                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-	                          Leave as "Use Current Team" to follow normal draft order
-	                        </p>
-	                      </div>
-	                    )}
+	                  <div className="mt-4">
 	                    <button
 	                      onClick={handleMakePick}
 	                      className="w-full px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
@@ -512,29 +470,7 @@ function LiveDraft() {
 	                  })}
 	                </div>
 	                {canMakePick && selectedPlayer && (
-	                  <div className="mt-4 space-y-3">
-	                    {isAdmin && draftState.teams.length > 0 && (
-	                      <div>
-	                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-	                          Override Team (Admin Only)
-	                        </label>
-	                        <select
-	                          value={selectedTeamId || ''}
-	                          onChange={(e) => setSelectedTeamId(e.target.value || null)}
-	                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-	                        >
-	                          <option value="">Use Current Team</option>
-	                          {draftState.teams.map((team) => (
-	                            <option key={team.id} value={team.id}>
-	                              {team.name}
-	                            </option>
-	                          ))}
-	                        </select>
-	                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-	                          Leave as "Use Current Team" to follow normal draft order
-	                        </p>
-	                      </div>
-	                    )}
+	                  <div className="mt-4">
 	                    <button
 	                      onClick={handleMakePick}
 	                      className="w-full px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
