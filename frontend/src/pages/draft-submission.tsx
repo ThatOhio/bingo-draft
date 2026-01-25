@@ -285,7 +285,7 @@ function SortableTeamRowPrediction({
 	)
 }
 
-const DraftSubmission = () => {
+function DraftSubmission() {
 	const { eventCode } = useParams<{ eventCode: string }>()
 	useAuth()
 	const [event, setEvent] = useState<{ id: string; players: Player[]; teams: Team[] } | null>(null)

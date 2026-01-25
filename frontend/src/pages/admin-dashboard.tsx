@@ -61,7 +61,7 @@ function SortableTeamRow({
 	)
 }
 
-const AdminDashboard = () => {
+function AdminDashboard() {
 	const [users, setUsers] = useState<User[]>([])
 	const [events, setEvents] = useState<Event[]>([])
 	const [loading, setLoading] = useState(true)

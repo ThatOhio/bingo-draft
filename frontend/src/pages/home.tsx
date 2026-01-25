@@ -20,7 +20,7 @@ interface Event {
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
 
-const Home = () => {
+function Home() {
 	const [events, setEvents] = useState<Event[]>([])
 	const [loading, setLoading] = useState(true)
 

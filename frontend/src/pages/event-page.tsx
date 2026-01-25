@@ -21,7 +21,7 @@ interface Event {
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
 
-const EventPage = () => {
+function EventPage() {
 	const { eventCode } = useParams<{ eventCode: string }>()
 	const { user } = useAuth()
 	const [event, setEvent] = useState<Event | null>(null)

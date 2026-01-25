@@ -129,7 +129,7 @@ interface AggregateStats {
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
 
-const Stats = () => {
+function Stats() {
 	const { eventCode } = useParams<{ eventCode: string }>()
 	const { user } = useAuth()
 	const [rankings, setRankings] = useState<Ranking[]>([])
