@@ -8,6 +8,7 @@ import {
 	useDraggable,
 	useDroppable,
 	PointerSensor,
+	TouchSensor,
 	useSensor,
 	useSensors,
 } from '@dnd-kit/core'
@@ -208,7 +209,7 @@ function DraggableCellChip({
 	    ref={setNodeRef}
 	    {...attributes}
 	    {...listeners}
-	    className={`text-sm font-medium text-gray-900 dark:text-gray-100 truncate px-2 py-1 rounded bg-indigo-100 dark:bg-indigo-900/50 border border-indigo-200 dark:border-indigo-700 cursor-grab active:cursor-grabbing ${
+	    className={`text-sm font-medium text-gray-900 dark:text-gray-100 truncate px-2 py-1 rounded bg-indigo-100 dark:bg-indigo-900/50 border border-indigo-200 dark:border-indigo-700 cursor-grab active:cursor-grabbing touch-none select-none ${
 	      isDragging ? 'opacity-50' : ''
 	    } ${disabled ? 'cursor-not-allowed opacity-60' : ''}`}
 	  >
@@ -281,7 +282,7 @@ const PlayerPoolItem = memo(function PlayerPoolItem({ player, disabled }: Player
 	    {...attributes}
 	    {...listeners}
 	    title={title}
-	    className={`inline-flex items-center px-2 py-1 rounded-md border text-sm cursor-grab active:cursor-grabbing transition-colors ${
+	    className={`inline-flex items-center px-2 py-1 rounded-md border text-sm cursor-grab active:cursor-grabbing transition-colors touch-none select-none ${
 	      isDragging ? 'opacity-50' : 'bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 hover:border-indigo-300 dark:hover:border-indigo-500 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/30'
 	    } ${disabled ? 'cursor-not-allowed opacity-60' : ''}`}
 	  >
@@ -313,10 +314,10 @@ function SortableTeamRowPrediction({
 	  <div
 	    ref={setNodeRef}
 	    style={{ transform: CSS.Transform.toString(transform), transition }}
-	    className={`flex items-center gap-2 py-1.5 px-3 rounded border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 ${isDragging ? 'opacity-70 shadow-lg z-10' : ''} ${disabled ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'}`}
+	    className={`flex items-center gap-2 py-1.5 px-3 rounded border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 touch-none select-none ${isDragging ? 'opacity-70 shadow-lg z-10' : ''} ${disabled ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'}`}
 	    {...(disabled ? {} : { ...attributes, ...listeners })}
 	  >
-	    {!disabled && <span className="text-gray-400 dark:text-gray-500 select-none" aria-hidden="true">⋮⋮</span>}
+	    {!disabled && <span className="text-gray-400 dark:text-gray-500 select-none" title="Drag to reorder" aria-hidden="true">⋮⋮</span>}
 	    <span className="text-sm font-medium text-gray-500 dark:text-gray-400">#{index}</span>
 	    <span className="font-medium text-gray-900 dark:text-gray-100">{team.name}</span>
 	  </div>
@@ -339,8 +340,9 @@ function DraftSubmission() {
 	const [searchTerm, setSearchTerm] = useState('')
 
 	const sensors = useSensors(
-	  useSensor(PointerSensor, {
-	    activationConstraint: { distance: 8 },
+	  useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+	  useSensor(TouchSensor, {
+	    activationConstraint: { delay: 150, tolerance: 8 },
 	  })
 	)
 
@@ -555,8 +557,11 @@ function DraftSubmission() {
 	        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Predict team draft order</h3>
 	        {!teamOrderLocked ? (
 	          <>
-	            <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-	              Drag teams to set which you think picks 1st, 2nd, 3rd, etc. in round 1. Lock this order to open the draft board and predict player picks.
+	            <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+	              Drag and drop the teams to put them in your predicted draft order. Top of the list is pick 1, then 2, 3, and so on. On mobile, tap and hold a team briefly, then drag.
+	            </p>
+	            <p className="text-sm text-gray-500 dark:text-gray-500 mb-3">
+	              When you are done, click Lock team order to open the draft board.
 	            </p>
 	            <DndContext
 	              sensors={sensors}
@@ -636,8 +641,11 @@ function DraftSubmission() {
 	          <div className="mb-4 flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
 	            <div>
 	              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Draft board</h2>
+	              <p className="text-gray-600 dark:text-gray-400 mb-2">
+	                Click and drag each player from the Players list onto a slot on the board. Each column is a team and each slot is one pick. You can move players between slots or drag them back to the list to remove them.
+	              </p>
 	              <p className="text-gray-600 dark:text-gray-400">
-	                Drag players from the list into the slots to predict the draft order. Columns follow your team order above. Each slot is a pick in snake order. Save anytime; partial predictions are fine. Whatever you have saved when the draft starts will count.
+	                Columns follow your team order above. Save anytime. Whatever you have saved when the draft starts will count.
 	              </p>
 	            </div>
 	            {!isLocked && (
@@ -719,9 +727,12 @@ function DraftSubmission() {
 
 	          {/* Player pool */}
 	          <div className={`w-full flex-shrink-0 ${numTeams >= 5 ? 'max-w-2xl' : 'lg:w-80 xl:w-96'}`}>
-	            <div className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50 rounded-lg flex flex-col h-fit max-h-[70vh]">
+	          <div className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50 rounded-lg flex flex-col h-fit max-h-[70vh]">
 	              <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex flex-col gap-2">
 	                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Players</h3>
+	                <p className="text-sm text-gray-500 dark:text-gray-400">
+	                  Drag each name onto a slot on the board.
+	                </p>
 	                <input
 	                  type="text"
 	                  placeholder="Search..."
