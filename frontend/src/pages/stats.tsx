@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom'
 import axios from 'axios'
 import { useAuth } from '../contexts/auth-context'
 import { AppHeader } from '../components/app-header'
+import { InfoTooltip } from '../components/info-tooltip'
 import {
 	BarChart,
 	Bar,
@@ -197,59 +198,81 @@ function Stats() {
 	      <div className="px-4 py-6 sm:px-0">
 	        {userStats && (
 	          <div className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50 rounded-lg p-6 mb-6">
-	            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">Your Stats</h2>
+	            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+	            Your Stats <InfoTooltip content="Your submission’s counts and points by category." />
+	          </h2>
 	            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 mb-4">
 	              <div className="text-center p-3 rounded-lg bg-indigo-50 dark:bg-indigo-900/30">
 	                <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
 	                  {userStats.stats.exactMatches}
 	                </div>
-	                <div className="text-xs text-gray-600 dark:text-gray-400">Exact (slot)</div>
+	                <div className="text-xs text-gray-600 dark:text-gray-400 inline-flex items-center justify-center gap-1">
+	                Exact (slot) <InfoTooltip content="Predicted pick # = actual. 10 pts each." />
+	              </div>
 	              </div>
 	              <div className="text-center p-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/30">
 	                <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
 	                  {userStats.stats.closeMatches}
 	                </div>
-	                <div className="text-xs text-gray-600 dark:text-gray-400">Near (±1-3)</div>
+	                <div className="text-xs text-gray-600 dark:text-gray-400 inline-flex items-center justify-center gap-1">
+	                Near (±1–3) <InfoTooltip content="Within 1–3 slots: ±1→5 pts, ±2→3, ±3→1." />
+	              </div>
 	              </div>
 	              <div className="text-center p-3 rounded-lg bg-amber-50 dark:bg-amber-900/30">
 	                <div className="text-2xl font-bold text-amber-700 dark:text-amber-400">
 	                  {userStats.stats.teamOrderExactMatches ?? 0}
 	                </div>
-	                <div className="text-xs text-gray-600 dark:text-gray-400">Team order</div>
+	                <div className="text-xs text-gray-600 dark:text-gray-400 inline-flex items-center justify-center gap-1">
+	                Team order <InfoTooltip content="Your predicted draft order (which team picks 1st, 2nd, …) vs actual. 5 pts per team in the right position." />
+	              </div>
 	              </div>
 	              <div className="text-center p-3 rounded-lg bg-cyan-50 dark:bg-cyan-900/30">
 	                <div className="text-2xl font-bold text-cyan-700 dark:text-cyan-400">
 	                  {userStats.stats.correctTeamMatches ?? 0}
 	                </div>
-	                <div className="text-xs text-gray-600 dark:text-gray-400">Correct team</div>
+	                <div className="text-xs text-gray-600 dark:text-gray-400 inline-flex items-center justify-center gap-1">
+	                Correct team <InfoTooltip content="For each player, you predicted which team drafts them (from your order + team order). 3 pts per match." />
+	              </div>
 	              </div>
 	              <div className="text-center p-3 rounded-lg bg-violet-50 dark:bg-violet-900/30">
 	                <div className="text-2xl font-bold text-violet-600 dark:text-violet-400">
 	                  {userStats.stats.correctRoundMatches ?? 0}
 	                </div>
-	                <div className="text-xs text-gray-600 dark:text-gray-400">Correct round</div>
+	                <div className="text-xs text-gray-600 dark:text-gray-400 inline-flex items-center justify-center gap-1">
+	                Correct round <InfoTooltip content="For each player, you predicted the round. 2 pts per match." />
+	              </div>
 	              </div>
 	            </div>
 	            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
 	              <div className="text-center">
 	                <span className="text-lg font-semibold text-gray-900 dark:text-gray-100">{userStats.stats.playerSlotScore ?? userStats.stats.exactMatches * 10 + (userStats.stats.closeMatches || 0) * 3}</span>
-	                <span className="text-xs text-gray-500 dark:text-gray-400 block">Player slot pts</span>
+	                <span className="text-xs text-gray-500 dark:text-gray-400 block">
+	                Player slot pts <InfoTooltip content="Exact: 10 pts. ±1: 5, ±2: 3, ±3: 1. Sum over all drafted players." />
+	              </span>
 	              </div>
 	              <div className="text-center">
 	                <span className="text-lg font-semibold text-gray-900 dark:text-gray-100">{userStats.stats.teamOrderScore ?? 0}</span>
-	                <span className="text-xs text-gray-500 dark:text-gray-400 block">Team order pts</span>
+	                <span className="text-xs text-gray-500 dark:text-gray-400 block">
+	                Team order pts <InfoTooltip content="5 pts per team in the correct draft-order position." />
+	              </span>
 	              </div>
 	              <div className="text-center">
 	                <span className="text-lg font-semibold text-gray-900 dark:text-gray-100">{userStats.stats.correctTeamScore ?? 0}</span>
-	                <span className="text-xs text-gray-500 dark:text-gray-400 block">Correct team pts</span>
+	                <span className="text-xs text-gray-500 dark:text-gray-400 block">
+	                Correct team pts <InfoTooltip content="3 pts per player where your predicted drafting team matched." />
+	              </span>
 	              </div>
 	              <div className="text-center">
 	                <span className="text-lg font-semibold text-gray-900 dark:text-gray-100">{userStats.stats.correctRoundScore ?? 0}</span>
-	                <span className="text-xs text-gray-500 dark:text-gray-400 block">Correct round pts</span>
+	                <span className="text-xs text-gray-500 dark:text-gray-400 block">
+	                Correct round pts <InfoTooltip content="2 pts per player where your predicted round matched." />
+	              </span>
 	              </div>
 	            </div>
 	            <div className="flex items-center justify-between">
-	              <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">Total: {userStats.stats.score}</div>
+	              <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+	              Total <InfoTooltip content="Sum of player slot + team order + correct team + correct round." />: {userStats.stats.score}
+	            </div>
 	              <div className="text-sm text-gray-500 dark:text-gray-400">
 	                Last saved: {new Date(userStats.submission.submittedAt).toLocaleString()}
 	              </div>
@@ -259,9 +282,11 @@ function Stats() {
 
 	        {aggregate !== null && aggregate !== undefined && (
 	          <div className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50 rounded-lg p-6 mb-6">
-	            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">Draft Insights</h2>
+	            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">
+	            Draft Insights <InfoTooltip content="Aggregate accuracy across all submissions: which players and teams the crowd got right or wrong." />
+	          </h2>
 	            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-	              How the draft played out across all predictions. Based on {aggregate.totalSubmissions} submission{aggregate.totalSubmissions !== 1 ? 's' : ''}
+	              Based on {aggregate.totalSubmissions} submission{aggregate.totalSubmissions !== 1 ? 's' : ''}
 	              {aggregate.totalWithTeamOrder > 0 && aggregate.totalWithTeamOrder !== aggregate.totalSubmissions
 	                ? ` (${aggregate.totalWithTeamOrder} with team order)`
 	                : ''}.
@@ -270,7 +295,9 @@ function Stats() {
 	            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
 	              {/* Players: most / least / surprises */}
 	              <div className="space-y-4">
-	                <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 border-b border-gray-200 dark:border-gray-600 pb-2">Players (slot)</h3>
+	                <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 border-b border-gray-200 dark:border-gray-600 pb-2">
+	                Players (slot) <InfoTooltip content="Pick # accuracy: how many had each player’s slot exactly right. exact/total = exact matches over submissions that included that player." />
+	              </h3>
 	                <div>
 	                  <h4 className="text-sm font-medium text-emerald-700 dark:text-emerald-400 mb-2">Most accurately predicted</h4>
 	                  <ul className="text-sm space-y-1 text-gray-900 dark:text-gray-100">
@@ -300,8 +327,9 @@ function Stats() {
 	                  </ul>
 	                </div>
 	                <div>
-	                  <h4 className="text-sm font-medium text-violet-600 dark:text-violet-400 mb-2">Biggest surprises</h4>
-	                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Went most differently than the crowd expected (avg predicted vs actual)</p>
+	                  <h4 className="text-sm font-medium text-violet-600 dark:text-violet-400 mb-2">
+	                  Biggest surprises <InfoTooltip content="|avg predicted # − actual #|. Higher Δ = crowd was more wrong. # = actual pick." />
+	                </h4>
 	                  <ul className="text-sm space-y-1 text-gray-900 dark:text-gray-100">
 	                    {aggregate.players.biggestSurprises.slice(0, 5).map((p) => (
 	                      <li key={p.playerId} className="flex justify-between gap-2">
@@ -320,7 +348,9 @@ function Stats() {
 
 	              {/* Team order */}
 	              <div className="space-y-4">
-	                <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 border-b border-gray-200 dark:border-gray-600 pb-2">Team draft order</h3>
+	                <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 border-b border-gray-200 dark:border-gray-600 pb-2">
+	                Team draft order <InfoTooltip content="Which team picks 1st, 2nd, … correct/total = submissions that had that team in the right position." />
+	              </h3>
 	                <div>
 	                  <h4 className="text-sm font-medium text-emerald-700 dark:text-emerald-400 mb-2">Most accurately predicted</h4>
 	                  <ul className="text-sm space-y-1 text-gray-900 dark:text-gray-100">
@@ -353,7 +383,9 @@ function Stats() {
 
 	              {/* Correct team (which team drafts which player) */}
 	              <div className="space-y-4">
-	                <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 border-b border-gray-200 dark:border-gray-600 pb-2">Correct team (who drafts whom)</h3>
+	                <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 border-b border-gray-200 dark:border-gray-600 pb-2">
+	                Correct team (who drafts whom) <InfoTooltip content="For each team: of (user, player) pairs where that team drafted the player, how many predicted it. correct/total possible." />
+	              </h3>
 	                <div>
 	                  <h4 className="text-sm font-medium text-emerald-700 dark:text-emerald-400 mb-2">Most accurately predicted</h4>
 	                  <ul className="text-sm space-y-1 text-gray-900 dark:text-gray-100">
@@ -388,7 +420,9 @@ function Stats() {
 	        )}
 
 	        <div className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50 rounded-lg p-6 mb-6">
-	          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">Leaderboard</h2>
+	          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+	          Leaderboard <InfoTooltip content="Bars = total score, split into the four categories. Table columns use the same scoring." />
+	        </h2>
 	          {rankings.length === 0 ? (
 	            <p className="text-gray-600 dark:text-gray-400">No rankings available yet.</p>
 	          ) : (
@@ -419,22 +453,22 @@ function Stats() {
 	                        Name
 	                      </th>
 	                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-	                        Score
+	                        <span className="inline-flex items-center gap-1">Score <InfoTooltip content="Total: player slot + team order + correct team + correct round." /></span>
 	                      </th>
 	                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-	                        Exact
+	                        <span className="inline-flex items-center gap-1">Exact <InfoTooltip content="Players with predicted # = actual #. 10 pts each." /></span>
 	                      </th>
 	                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-	                        Near
+	                        <span className="inline-flex items-center gap-1">Near <InfoTooltip content="Within ±1–3 slots. ±1→5, ±2→3, ±3→1 pt." /></span>
 	                      </th>
-	                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" title="Team order correct">
-	                        Team ord
+	                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+	                        <span className="inline-flex items-center gap-1">Team ord <InfoTooltip content="Teams in the correct draft-order position. 5 pts each." /></span>
 	                      </th>
-	                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" title="Correct team per player">
-	                        Corr. team
+	                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+	                        <span className="inline-flex items-center gap-1">Corr. team <InfoTooltip content="Players where you predicted the right drafting team. 3 pts each." /></span>
 	                      </th>
-	                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" title="Correct round per player">
-	                        Corr. round
+	                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+	                        <span className="inline-flex items-center gap-1">Corr. round <InfoTooltip content="Players where you predicted the right round. 2 pts each." /></span>
 	                      </th>
 	                    </tr>
 	                  </thead>
@@ -482,7 +516,9 @@ function Stats() {
 
 	        {userStats && (
 	          <div className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50 rounded-lg p-6">
-	            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">Your Match Details</h2>
+	            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+	            Your Match Details <InfoTooltip content="One row per player. Green = exact; yellow = ±1–3." />
+	          </h2>
 	            <div className="overflow-x-auto">
 	              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
 	                <thead className="bg-gray-50 dark:bg-gray-700/50">
@@ -491,22 +527,22 @@ function Stats() {
 	                      Player
 	                    </th>
 	                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-	                      Pred #
+	                      <span className="inline-flex items-center gap-1">Pred # <InfoTooltip content="Your predicted overall pick number." /></span>
 	                    </th>
 	                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-	                      Actual #
+	                      <span className="inline-flex items-center gap-1">Actual # <InfoTooltip content="Actual pick number, or not drafted." /></span>
 	                    </th>
 	                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-	                      Diff
+	                      <span className="inline-flex items-center gap-1">Diff <InfoTooltip content="|predicted − actual|. 0 = exact; ±1–3 = near." /></span>
 	                    </th>
 	                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-	                      Pred. team
+	                      <span className="inline-flex items-center gap-1">Pred. team <InfoTooltip content="Team you had in that slot (from your order + team order)." /></span>
 	                    </th>
 	                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-	                      Actual team
+	                      <span className="inline-flex items-center gap-1">Actual team <InfoTooltip content="Team that actually drafted them." /></span>
 	                    </th>
-	                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" title="Correct team">
-	                      Team ✓
+	                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+	                      <span className="inline-flex items-center gap-1">Team ✓ <InfoTooltip content="Predicted drafting team matched actual." /></span>
 	                    </th>
 	                  </tr>
 	                </thead>
