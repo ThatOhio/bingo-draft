@@ -13,43 +13,43 @@ import ProtectedRoute from './components/protected-route'
 
 function App() {
 	return (
-	  <AuthProvider>
-	    <SocketProvider>
-	      <BrowserRouter>
-	        <Routes>
-	          <Route path="/login" element={<Login />} />
-	          <Route path="/auth/callback" element={<AuthCallback />} />
-	          <Route path="/" element={<Home />} />
-	          <Route path="/event/:eventCode" element={<EventPage />} />
-	          <Route
-	            path="/event/:eventCode/submit"
-	            element={
-	              <ProtectedRoute>
-	                <DraftSubmission />
-	              </ProtectedRoute>
-	            }
-	          />
-	          <Route
-	            path="/event/:eventCode/draft"
-	            element={<LiveDraft />}
-	          />
-	          <Route
-	            path="/event/:eventCode/stats"
-	            element={<Stats />}
-	          />
-	          <Route
-	            path="/admin"
-	            element={
-	              <ProtectedRoute requiredRole="ADMIN">
-	                <AdminDashboard />
-	              </ProtectedRoute>
-	            }
-	          />
-	          <Route path="*" element={<Navigate to="/" replace />} />
-	        </Routes>
-	      </BrowserRouter>
-	    </SocketProvider>
-	  </AuthProvider>
+		<AuthProvider>
+			<SocketProvider>
+				<BrowserRouter>
+					<Routes>
+						<Route path="/login" element={<Login />} />
+						<Route path="/auth/callback" element={<AuthCallback />} />
+						<Route path="/" element={<Home />} />
+						<Route path="/event/:eventCode" element={<EventPage />} />
+						<Route
+							path="/event/:eventCode/submit"
+							element={
+								<ProtectedRoute>
+									<DraftSubmission />
+								</ProtectedRoute>
+							}
+						/>
+						<Route
+							path="/event/:eventCode/draft"
+							element={<LiveDraft />}
+						/>
+						<Route
+							path="/event/:eventCode/stats"
+							element={<Stats />}
+						/>
+						<Route
+							path="/admin"
+							element={
+								<ProtectedRoute requiredRole="ADMIN">
+									<AdminDashboard />
+								</ProtectedRoute>
+							}
+						/>
+						<Route path="*" element={<Navigate to="/" replace />} />
+					</Routes>
+				</BrowserRouter>
+			</SocketProvider>
+		</AuthProvider>
 	)
 }
 

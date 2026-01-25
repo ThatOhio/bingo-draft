@@ -44,7 +44,10 @@ interface Submission {
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
 
 // --- Snake order helpers (must match backend) ---
-function slotToRoundAndTeamIndex(slotIndex: number, numTeams: number): { round: number; teamIndex: number } {
+function slotToRoundAndTeamIndex(
+	slotIndex: number,
+	numTeams: number
+): { round: number; teamIndex: number } {
 	const round = Math.floor(slotIndex / numTeams) + 1
 	const posInRound = slotIndex % numTeams
 	const teamIndex = round % 2 === 1 ? posInRound : numTeams - 1 - posInRound
@@ -206,9 +209,14 @@ function DraftCell({
 	return (
 	  <td
 	    ref={setNodeRef}
-	    className={`${compact ? 'min-w-[5rem]' : 'min-w-[7rem]'} p-1.5 align-top border-b border-gray-100 dark:border-gray-700 ${
-	      !valid ? 'bg-gray-50 dark:bg-gray-700/50' : isOver ? 'bg-indigo-50 dark:bg-indigo-900/30 ring-1 ring-indigo-300 dark:ring-indigo-600 ring-inset' : 'bg-white dark:bg-gray-800'
-	    } ${!valid ? '' : 'min-h-[2.25rem]'}`}
+	    className={`${compact ? 'min-w-[5rem]' : 'min-w-[7rem]'} p-1.5 align-top border-b ` +
+		`border-gray-100 dark:border-gray-700 ${
+			!valid ? 'bg-gray-50 dark:bg-gray-700/50'
+				: isOver
+					? 'bg-indigo-50 dark:bg-indigo-900/30 ring-1 ring-indigo-300 ' +
+						'dark:ring-indigo-600 ring-inset'
+					: 'bg-white dark:bg-gray-800'
+		} ${!valid ? '' : 'min-h-[2.25rem]'}`}
 	  >
 	    {!valid ? (
 	      <span className="text-gray-300 dark:text-gray-500 text-xs">-</span>

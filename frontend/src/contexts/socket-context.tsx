@@ -21,45 +21,45 @@ export function SocketProvider({ children }: SocketProviderProps) {
 	const [socket, setSocket] = useState<Socket | null>(null)
 
 	useEffect(() => {
-	  if (token) {
-	    const newSocket = io(API_URL, {
-	      auth: {
-	        token,
-	      },
-	    })
+		if (token) {
+			const newSocket = io(API_URL, {
+				auth: {
+					token,
+				},
+			})
 
-	    newSocket.on('connect', () => {
-	      console.log('Socket connected')
-	    })
+			newSocket.on('connect', () => {
+				console.log('Socket connected')
+			})
 
-	    newSocket.on('disconnect', () => {
-	      console.log('Socket disconnected')
-	    })
+			newSocket.on('disconnect', () => {
+				console.log('Socket disconnected')
+			})
 
-	    setSocket(newSocket)
+			setSocket(newSocket)
 
-	    return () => {
-	      newSocket.close()
-	    }
-	  }
+			return () => {
+				newSocket.close()
+			}
+		}
 	}, [token])
 
 	const connectToEvent = (eventId: string) => {
-	  if (socket) {
-	    socket.emit('join-event', eventId)
-	  }
+		if (socket) {
+			socket.emit('join-event', eventId)
+		}
 	}
 
 	const disconnectFromEvent = (eventId: string) => {
-	  if (socket) {
-	    socket.emit('leave-event', eventId)
-	  }
+		if (socket) {
+			socket.emit('leave-event', eventId)
+		}
 	}
 
 	return (
-	  <SocketContext.Provider value={{ socket, connectToEvent, disconnectFromEvent }}>
-	    {children}
-	  </SocketContext.Provider>
+		<SocketContext.Provider value={{ socket, connectToEvent, disconnectFromEvent }}>
+			{children}
+		</SocketContext.Provider>
 	)
 }
 

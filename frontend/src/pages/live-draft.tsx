@@ -54,7 +54,7 @@ const LiveDraft = () => {
 	const [draftState, setDraftState] = useState<DraftState | null>(null)
 	const [loading, setLoading] = useState(true)
 	const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null)
-	const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null); // For admin override
+	const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null) // For admin override
 	const [searchTerm, setSearchTerm] = useState('')
 
 	useEffect(() => {
@@ -99,7 +99,7 @@ const LiveDraft = () => {
 	useEffect(() => {
 	  if (event) {
 	    fetchDraftState()
-	    const interval = setInterval(fetchDraftState, 2000); // Poll every 2 seconds as fallback
+	    const interval = setInterval(fetchDraftState, 2000) // Poll every 2 seconds as fallback
 	    return () => clearInterval(interval)
 	  }
 	}, [event])
@@ -266,7 +266,11 @@ const LiveDraft = () => {
 	      }
 	    />
 
-	    <main className={`mx-auto py-6 sm:px-6 lg:px-8 ${numTeams >= 6 ? 'max-w-[min(1600px,96vw)]' : 'max-w-7xl'}`}>
+	    <main
+	      className={`mx-auto py-6 sm:px-6 lg:px-8 ${
+	        numTeams >= 6 ? 'max-w-[min(1600px,96vw)]' : 'max-w-7xl'
+	      }`}
+	    >
 	      <div className="px-4 py-6 sm:px-0">
 	        <div className="mb-6 bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50 rounded-lg p-6">
 	          <div className="flex justify-between items-center">

@@ -252,7 +252,7 @@ router.put('/:id/team-draft-order', authenticate, requireRole('ADMIN'), async (r
 router.post('/:id/players/bulk-import', authenticate, requireRole('ADMIN'), async (req: AuthRequest, res) => {
 	try {
 	  const { id } = req.params
-	  const { text } = req.body; // Text with one player per line
+	  const { text } = req.body // Text with one player per line
 
 	  if (!text || typeof text !== 'string') {
 	    return res.status(400).json({ error: 'Text content is required' })

@@ -24,24 +24,24 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 	const isDark = theme === 'dark'
 
 	useEffect(() => {
-	  const root = document.documentElement
-	  if (theme === 'dark') {
-	    root.classList.add('dark')
-	  } else {
-	    root.classList.remove('dark')
-	  }
-	  root.style.colorScheme = theme
-	  localStorage.setItem(STORAGE_KEY, theme)
+		const root = document.documentElement
+		if (theme === 'dark') {
+			root.classList.add('dark')
+		} else {
+			root.classList.remove('dark')
+		}
+		root.style.colorScheme = theme
+		localStorage.setItem(STORAGE_KEY, theme)
 	}, [theme])
 
 	const toggleTheme = useCallback(() => {
-	  setTheme((t) => (t === 'light' ? 'dark' : 'light'))
+		setTheme((t) => (t === 'light' ? 'dark' : 'light'))
 	}, [])
 
 	return (
-	  <ThemeContext.Provider value={{ theme, isDark, toggleTheme }}>
-	    {children}
-	  </ThemeContext.Provider>
+		<ThemeContext.Provider value={{ theme, isDark, toggleTheme }}>
+			{children}
+		</ThemeContext.Provider>
 	)
 }
 

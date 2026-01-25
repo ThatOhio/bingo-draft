@@ -100,7 +100,10 @@ const AdminDashboard = () => {
 	  const ids = ed.teams.map((t: any) => t.id)
 	  if (ed.teamDraftOrder?.length === ids.length && ids.every((id: string) => ed.teamDraftOrder.includes(id)))
 	    return ed.teamDraftOrder
-	  return ed.teams.slice().sort((a: any, b: any) => a.name.localeCompare(b.name)).map((t: any) => t.id)
+	  return ed.teams
+	    .slice()
+	    .sort((a: any, b: any) => a.name.localeCompare(b.name))
+	    .map((t: any) => t.id)
 	}
 
 	useEffect(() => {

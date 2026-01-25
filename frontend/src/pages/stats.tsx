@@ -3,7 +3,16 @@ import { useParams } from 'react-router-dom'
 import axios from 'axios'
 import { useAuth } from '../contexts/auth-context'
 import { AppHeader } from '../components/app-header'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import {
+	BarChart,
+	Bar,
+	XAxis,
+	YAxis,
+	CartesianGrid,
+	Tooltip,
+	Legend,
+	ResponsiveContainer,
+} from 'recharts'
 
 interface CategoryScores {
 	playerSlot: number
