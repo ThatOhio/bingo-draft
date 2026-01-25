@@ -279,7 +279,7 @@ function SortableTeamRowPrediction({
 	    className={`flex items-center gap-2 py-1.5 px-3 rounded border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 ${isDragging ? 'opacity-70 shadow-lg z-10' : ''} ${disabled ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'}`}
 	    {...(disabled ? {} : { ...attributes, ...listeners })}
 	  >
-	    {!disabled && <span className="text-gray-400 dark:text-gray-500 select-none" aria-hidden>⋮⋮</span>}
+	    {!disabled && <span className="text-gray-400 dark:text-gray-500 select-none" aria-hidden="true">⋮⋮</span>}
 	    <span className="text-sm font-medium text-gray-500 dark:text-gray-400">#{index}</span>
 	    <span className="font-medium text-gray-900 dark:text-gray-100">{team.name}</span>
 	  </div>

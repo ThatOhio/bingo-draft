@@ -88,7 +88,7 @@ function SortableTeamRow({
 	    {...attributes}
 	    {...listeners}
 	  >
-	    <span className="text-gray-400 dark:text-gray-500 select-none" aria-hidden>⋮⋮</span>
+	    <span className="text-gray-400 dark:text-gray-500 select-none" aria-hidden="true">⋮⋮</span>
 	    <span className="text-sm font-medium text-gray-500 dark:text-gray-400 w-6">#{index}</span>
 	    <span className="flex-1 font-medium text-gray-900 dark:text-gray-100">{team.name}</span>
 	  </div>
