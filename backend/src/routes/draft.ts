@@ -456,6 +456,7 @@ router.post('/:eventId/undo', authenticate, requireRole('ADMIN'), async (req: Au
 
 	  const event = await prisma.event.findUnique({
 	    where: { id: eventId },
+	    include: { teams: true },
 	  })
 
 	  if (!event) {
