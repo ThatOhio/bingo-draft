@@ -15,7 +15,7 @@ const createEventSchema = z.object({
 
 const updateEventSchema = z.object({
 	name: z.string().min(1).optional(),
-	description: z.string().optional(),
+	description: z.string().nullish(),
 	status: z.enum(['PLANNED', 'OPEN', 'DRAFTING', 'PAUSED', 'COMPLETED', 'CLOSED']).optional(),
 	draftDeadline: z.string().datetime().optional(),
 	draftStartTime: z.string().datetime().optional(),

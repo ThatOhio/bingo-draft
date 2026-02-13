@@ -62,7 +62,9 @@ interface EventDetailsTeam {
 }
 
 interface EventDetails {
+	id: string
 	status: string
+	description?: string | null
 	teams?: EventDetailsTeam[]
 	players?: EventDetailsPlayer[]
 	teamDraftOrder?: string[]
@@ -141,9 +143,24 @@ function AdminDashboard() {
 	const [addingCaptainToTeamId, setAddingCaptainToTeamId] = useState<string | null>(null)
 	const [teamOrderIds, setTeamOrderIds] = useState<string[]>([])
 	const [savingTeamDraftOrder, setSavingTeamDraftOrder] = useState(false)
+	const [editDescription, setEditDescription] = useState('')
+	const [savingDescription, setSavingDescription] = useState(false)
 
 	// Export state
 	const [exporting, setExporting] = useState(false)
+
+	// Sync description edit field when event details load for the selected event
+	useEffect(() => {
+		if (!selectedEvent) {
+			setEditDescription('')
+			return
+		}
+		if (eventDetails?.id === selectedEvent.id) {
+			setEditDescription(eventDetails.description ?? '')
+		} else {
+			setEditDescription('')
+		}
+	}, [selectedEvent?.id, eventDetails])
 
 	const teamOrderSensors = useSensors(
 	  useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
@@ -328,6 +345,23 @@ function AdminDashboard() {
 	    fetchData()
 	  } catch (err: unknown) {
 	    alert(getErrorMessage(err, 'Failed to update event status'))
+	  }
+	}
+
+	const handleUpdateEventDescription = async () => {
+	  if (!selectedEvent) return
+	  setSavingDescription(true)
+	  try {
+	    const value = editDescription.trim()
+	    await axios.put(`${API_URL}/api/events/${selectedEvent.id}`, {
+	      description: value === '' ? null : value,
+	    })
+	    alert('Event description updated!')
+	    fetchEventDetails(selectedEvent.id)
+	  } catch (err: unknown) {
+	    alert(getErrorMessage(err, 'Failed to update event description'))
+	  } finally {
+	    setSavingDescription(false)
 	  }
 	}
 
@@ -573,6 +607,32 @@ function AdminDashboard() {
 	                            Draft initialized - Round {eventDetails.draftOrder.currentRound}, Pick {eventDetails.draftOrder.currentPick + 1}
 	                          </p>
 	                        )}
+	                      </div>
+	                    )}
+
+	                    {/* Event description: editable */}
+	                    {eventDetails && (
+	                      <div className="bg-white dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 p-4 rounded-lg">
+	                        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Event description</h3>
+	                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+	                          Shown on the event and home pages. Leave empty to clear.
+	                        </p>
+	                        <textarea
+	                          value={editDescription}
+	                          onChange={(e) => setEditDescription(e.target.value)}
+	                          placeholder="Event description and rules..."
+	                          rows={4}
+	                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
+	                          aria-label="Event description"
+	                        />
+	                        <button
+	                          type="button"
+	                          onClick={handleUpdateEventDescription}
+	                          disabled={savingDescription}
+	                          className="mt-2 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+	                        >
+	                          {savingDescription ? 'Saving...' : 'Save description'}
+	                        </button>
 	                      </div>
 	                    )}
 
