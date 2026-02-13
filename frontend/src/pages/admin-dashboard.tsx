@@ -216,7 +216,7 @@ function AdminDashboard() {
 	  }
 	}
 
-	const onCreateEventSubmit = async (data: CreateEventForm) => {
+	const handleCreateEventSubmit = async (data: CreateEventForm) => {
 	  setCreatingEvent(true)
 	  try {
 	    const eventData: CreateEventDto = {
