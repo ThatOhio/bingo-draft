@@ -358,7 +358,9 @@ router.post('/:eventId/pick', authenticate, async (req: AuthRequest, res) => {
 	          pickNumber: 'asc',
 	        },
 	      },
-	      players: true,
+	      players: {
+	        orderBy: { name: 'asc' },
+	      },
 	    },
 	  })
 
@@ -422,7 +424,9 @@ router.get('/:eventId/state', async (req, res) => {
 	          pickNumber: 'asc',
 	        },
 	      },
-	      players: true,
+	      players: {
+	        orderBy: { name: 'asc' },
+	      },
 	    },
 	  })
 
