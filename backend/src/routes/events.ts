@@ -39,6 +39,11 @@ const bulkImportBodySchema = z.object({
 	text: z.string().min(1, 'Text content is required'),
 })
 
+/** Normalize player name for duplicate check (trim + lowercase). */
+function playerKey(name: string): string {
+	return name.trim().toLowerCase()
+}
+
 // Get all events (public)
 router.get('/', async (req, res) => {
 	try {
@@ -291,14 +296,18 @@ router.post('/:id/players/bulk-import', authenticate, requireRole('ADMIN'), asyn
 	    }
 	  })
 
-	  // Delete existing players
-	  await prisma.player.deleteMany({
+	  // Load existing players to avoid duplicates (preserves captains and other data)
+	  const existing = await prisma.player.findMany({
 	    where: { eventId: id },
+	    select: { name: true },
 	  })
+	  const existingKeys = new Set(existing.map((p) => playerKey(p.name)))
 
-	  // Create new players
+	  const toCreate = players.filter((p) => !existingKeys.has(playerKey(p.name)))
+	  const skipped = players.length - toCreate.length
+
 	  const createdPlayers = await prisma.player.createMany({
-	    data: players.map((p) => ({
+	    data: toCreate.map((p) => ({
 	      eventId: id,
 	      name: p.name,
 	      team: p.team || null,
@@ -306,7 +315,7 @@ router.post('/:id/players/bulk-import', authenticate, requireRole('ADMIN'), asyn
 	    })),
 	  })
 
-	  res.json({ count: createdPlayers.count, players: createdPlayers })
+	  res.json({ count: createdPlayers.count, skipped })
 	} catch (error) {
 	  if (error instanceof z.ZodError) {
 	    return res.status(400).json({ error: error.errors })
@@ -330,12 +339,18 @@ router.post('/:id/players/import', authenticate, requireRole('ADMIN'), async (re
 	    return res.status(404).json({ error: 'Event not found' })
 	  }
 
-	  await prisma.player.deleteMany({
+	  // Load existing players to avoid duplicates (preserves captains and other data)
+	  const existing = await prisma.player.findMany({
 	    where: { eventId: id },
+	    select: { name: true },
 	  })
+	  const existingKeys = new Set(existing.map((p) => playerKey(p.name)))
+
+	  const toCreate = players.filter((p) => !existingKeys.has(playerKey(p.name)))
+	  const skipped = players.length - toCreate.length
 
 	  const createdPlayers = await prisma.player.createMany({
-	    data: players.map((p) => ({
+	    data: toCreate.map((p) => ({
 	      eventId: id,
 	      name: p.name,
 	      team: p.team ?? null,
@@ -343,7 +358,7 @@ router.post('/:id/players/import', authenticate, requireRole('ADMIN'), async (re
 	    })),
 	  })
 
-	  res.json({ count: createdPlayers.count })
+	  res.json({ count: createdPlayers.count, skipped })
 	} catch (error) {
 	  if (error instanceof z.ZodError) {
 	    return res.status(400).json({ error: error.errors })

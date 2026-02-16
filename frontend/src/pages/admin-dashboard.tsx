@@ -212,8 +212,16 @@ function AdminDashboard() {
 	const handleBulkImportSubmit = async (data: BulkImportForm, eventId: string) => {
 	  setImporting(true)
 	  try {
-	    await axios.post(`${API_URL}/api/events/${eventId}/players/bulk-import`, { text: data.text })
-	    alert('Players imported successfully!')
+	    const res = await axios.post<{ count: number; skipped: number }>(
+	      `${API_URL}/api/events/${eventId}/players/bulk-import`,
+	      { text: data.text }
+	    )
+	    const { count, skipped } = res.data
+	    const message =
+	      skipped > 0
+	        ? `Added ${count} new player(s). ${skipped} already existed and were kept (e.g. captains unchanged).`
+	        : `Added ${count} player(s).`
+	    alert(message)
 	    bulkImportForm.reset()
 	    fetchEventDetails(eventId)
 	    fetchData()
@@ -852,7 +860,7 @@ function AdminDashboard() {
 	                        </button>
 	                      </form>
 	                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-	                        This will replace all existing players for this event.
+	                        New names are added only; existing players are kept (no duplicates, captains unchanged).
 	                      </p>
 	                    </div>
 
