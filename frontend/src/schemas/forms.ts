@@ -23,6 +23,12 @@ export const bulkImportSchema = z.object({
 	text: z.string().min(1, 'Please enter player names'),
 })
 
+/** Bulk remove: raw text with one player name per line. */
+export const bulkRemoveSchema = z.object({
+	text: z.string().min(1, 'Please enter player names to remove'),
+})
+
 export type CreateEventForm = z.infer<typeof createEventSchema>
 export type CreateTeamForm = z.infer<typeof createTeamSchema>
 export type BulkImportForm = z.infer<typeof bulkImportSchema>
+export type BulkRemoveForm = z.infer<typeof bulkRemoveSchema>

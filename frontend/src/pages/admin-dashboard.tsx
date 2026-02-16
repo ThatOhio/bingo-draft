@@ -19,9 +19,11 @@ import {
 	createEventSchema,
 	createTeamSchema,
 	bulkImportSchema,
+	bulkRemoveSchema,
 	type CreateEventForm,
 	type CreateTeamForm,
 	type BulkImportForm,
+	type BulkRemoveForm,
 } from '../schemas/forms'
 
 interface User {
@@ -117,6 +119,7 @@ function AdminDashboard() {
 	const [activeTab, setActiveTab] = useState<'users' | 'events' | 'event-management' | 'create-event'>('users')
 	const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
 	const [importing, setImporting] = useState(false)
+	const [removing, setRemoving] = useState(false)
 	const [creatingEvent, setCreatingEvent] = useState(false)
 	const [creatingTeam, setCreatingTeam] = useState(false)
 
@@ -127,6 +130,11 @@ function AdminDashboard() {
 
 	const bulkImportForm = useForm<BulkImportForm>({
 		resolver: zodResolver(bulkImportSchema),
+		defaultValues: { text: '' },
+	})
+
+	const bulkRemoveForm = useForm<BulkRemoveForm>({
+		resolver: zodResolver(bulkRemoveSchema),
 		defaultValues: { text: '' },
 	})
 
@@ -229,6 +237,36 @@ function AdminDashboard() {
 	    alert(getErrorMessage(err, 'Failed to import players'))
 	  } finally {
 	    setImporting(false)
+	  }
+	}
+
+	const handleBulkRemoveSubmit = async (data: BulkRemoveForm, eventId: string) => {
+	  const lines = data.text.split('\n').map((l) => l.trim()).filter(Boolean)
+	  const names = lines.map((line) => (line.split('|').map((p) => p.trim())[0] || line))
+	  const count = names.length
+	  const confirmed = window.confirm(
+	    `Remove ${count} player(s) from this event? This will delete these players and cannot be undone.`
+	  )
+	  if (!confirmed) return
+	  setRemoving(true)
+	  try {
+	    const res = await axios.post<{ deleted: number; notFound: string[] }>(
+	      `${API_URL}/api/events/${eventId}/players/bulk-remove`,
+	      { text: data.text }
+	    )
+	    const { deleted, notFound } = res.data
+	    const message =
+	      notFound.length > 0
+	        ? `Removed ${deleted} player(s). Not found in event: ${notFound.join(', ')}`
+	        : `Removed ${deleted} player(s).`
+	    alert(message)
+	    bulkRemoveForm.reset()
+	    fetchEventDetails(eventId)
+	    fetchData()
+	  } catch (err: unknown) {
+	    alert(getErrorMessage(err, 'Failed to remove players'))
+	  } finally {
+	    setRemoving(false)
 	  }
 	}
 
@@ -861,6 +899,40 @@ function AdminDashboard() {
 	                      </form>
 	                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
 	                        New names are added only; existing players are kept (no duplicates, captains unchanged).
+	                      </p>
+	                    </div>
+
+	                    {/* Bulk Player Remove */}
+	                    <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg">
+	                      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+	                        Remove Players
+	                      </h3>
+	                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+	                        Enter player names to remove, one per line. Optional format: Name | Team (only the name is used to match).
+	                      </p>
+	                      <form
+	                        onSubmit={bulkRemoveForm.handleSubmit((data) =>
+	                          handleBulkRemoveSubmit(data, selectedEvent.id)
+	                        )}
+	                      >
+	                        <textarea
+	                          placeholder="Player to remove 1&#10;Player to remove 2"
+	                          className="w-full h-32 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 font-mono text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
+	                          {...bulkRemoveForm.register('text')}
+	                        />
+	                        {bulkRemoveForm.formState.errors.text && (
+	                          <p className="text-sm text-red-600 dark:text-red-400 mt-1">{bulkRemoveForm.formState.errors.text.message}</p>
+	                        )}
+	                        <button
+	                          type="submit"
+	                          disabled={removing}
+	                          className="mt-4 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50"
+	                        >
+	                          {removing ? 'Removing...' : 'Remove Players'}
+	                        </button>
+	                      </form>
+	                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+	                        Matching is by name (case-insensitive). You will be asked to confirm before any players are deleted.
 	                      </p>
 	                    </div>
 

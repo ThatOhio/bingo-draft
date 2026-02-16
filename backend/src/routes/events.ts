@@ -39,6 +39,10 @@ const bulkImportBodySchema = z.object({
 	text: z.string().min(1, 'Text content is required'),
 })
 
+const bulkRemoveBodySchema = z.object({
+	text: z.string().min(1, 'Text content is required'),
+})
+
 /** Normalize player name for duplicate check (trim + lowercase). */
 function playerKey(name: string): string {
 	return name.trim().toLowerCase()
@@ -322,6 +326,54 @@ router.post('/:id/players/bulk-import', authenticate, requireRole('ADMIN'), asyn
 	  }
 	  console.error('Bulk import players error:', error)
 	  res.status(500).json({ error: 'Failed to bulk import players' })
+	}
+})
+
+// Bulk remove players by name (line-separated list) (admin only)
+router.post('/:id/players/bulk-remove', authenticate, requireRole('ADMIN'), async (req: AuthRequest, res) => {
+	try {
+	  const { id } = req.params
+	  const { text } = bulkRemoveBodySchema.parse(req.body)
+
+	  const event = await prisma.event.findUnique({
+	    where: { id },
+	  })
+
+	  if (!event) {
+	    return res.status(404).json({ error: 'Event not found' })
+	  }
+
+	  const lines = text.split('\n').map((line) => line.trim()).filter((line) => line.length > 0)
+	  const requestedNames = lines.map((line) => {
+	    const parts = line.split('|').map((p) => p.trim())
+	    return parts[0] || line
+	  })
+	  const requestedKeys = new Set(requestedNames.map((n) => playerKey(n)))
+
+	  const existingPlayers = await prisma.player.findMany({
+	    where: { eventId: id },
+	    select: { id: true, name: true },
+	  })
+
+	  const toDeleteIds = existingPlayers
+	    .filter((p) => requestedKeys.has(playerKey(p.name)))
+	    .map((p) => p.id)
+	  const foundKeys = new Set(
+	    existingPlayers.filter((p) => requestedKeys.has(playerKey(p.name))).map((p) => playerKey(p.name))
+	  )
+	  const notFound = requestedNames.filter((n) => !foundKeys.has(playerKey(n)))
+
+	  await prisma.player.deleteMany({
+	    where: { id: { in: toDeleteIds } },
+	  })
+
+	  res.json({ deleted: toDeleteIds.length, notFound })
+	} catch (error) {
+	  if (error instanceof z.ZodError) {
+	    return res.status(400).json({ error: error.errors })
+	  }
+	  console.error('Bulk remove players error:', error)
+	  res.status(500).json({ error: 'Failed to bulk remove players' })
 	}
 })
 
