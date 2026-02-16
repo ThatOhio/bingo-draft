@@ -1,4 +1,5 @@
-import { useEffect, useState, useMemo, useCallback, memo, type ReactNode } from 'react'
+import { useEffect, useState, useMemo, useCallback, memo, useRef, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { useParams } from 'react-router-dom'
 import axios from 'axios'
 import {
@@ -50,6 +51,11 @@ interface DraggableCellChipProps {
 	disabled?: boolean
 }
 
+interface EditingCell {
+	round: number
+	teamId: string
+}
+
 interface DraftCellProps {
 	round: number
 	teamId: string
@@ -59,6 +65,8 @@ interface DraftCellProps {
 	playerId: string | undefined
 	players: Player[]
 	disabled?: boolean
+	editingCell: EditingCell | null
+	onEmptySlotClick?: (round: number, teamId: string, anchorEl: HTMLElement) => void
 }
 
 interface PlayerPoolItemProps {
@@ -220,6 +228,7 @@ function DraggableCellChip({
 
 /**
  * Droppable draft cell in the board. Accepts drops from pool or other cells; shows player or placeholder.
+ * Empty valid slots are clickable to open the player picker (type-to-place).
  */
 const DraftCell = memo(function DraftCell({
 	round,
@@ -230,7 +239,10 @@ const DraftCell = memo(function DraftCell({
 	playerId,
 	players,
 	disabled,
+	editingCell,
+	onEmptySlotClick,
 }: DraftCellProps) {
+	const cellRef = useRef<HTMLTableCellElement | null>(null)
 	const valid = isValidSlot(round, teamIndex, numTeams, totalSlots)
 	const { setNodeRef, isOver } = useDroppable({
 	  id: `cell-${round}-${teamId}`,
@@ -238,19 +250,36 @@ const DraftCell = memo(function DraftCell({
 	  disabled: disabled || !valid,
 	})
 
+	const setRef = useCallback(
+		(el: HTMLTableCellElement | null) => {
+		  setNodeRef(el)
+		  cellRef.current = el
+		},
+		[setNodeRef]
+	)
+
 	const playerObj = playerId ? players.find((p) => p.id === playerId) : undefined
+	const isEmpty = valid && !playerObj && !disabled
+	const isEditing = editingCell?.round === round && editingCell?.teamId === teamId
+
+	const handleEmptyClick = useCallback(() => {
+		if (!isEmpty || !onEmptySlotClick || !cellRef.current) return
+		onEmptySlotClick(round, teamId, cellRef.current)
+	}, [isEmpty, onEmptySlotClick, round, teamId])
 
 	const compact = numTeams >= 5
 	return (
 	  <td
-	    ref={setNodeRef}
+	    ref={setRef}
 	    className={`${compact ? 'min-w-[5rem]' : 'min-w-[7rem]'} p-1.5 align-top border-b ` +
 		`border-gray-100 dark:border-gray-700 ${
 			!valid ? 'bg-gray-50 dark:bg-gray-700/50'
 				: isOver
 					? 'bg-indigo-50 dark:bg-indigo-900/30 ring-1 ring-indigo-300 ' +
 						'dark:ring-indigo-600 ring-inset'
-					: 'bg-white dark:bg-gray-800'
+					: isEditing
+						? 'bg-indigo-50/80 dark:bg-indigo-900/20 ring-1 ring-indigo-300 dark:ring-indigo-600 ring-inset'
+						: 'bg-white dark:bg-gray-800'
 		} ${!valid ? '' : 'min-h-[2.25rem]'}`}
 	  >
 	    {!valid ? (
@@ -258,11 +287,171 @@ const DraftCell = memo(function DraftCell({
 	    ) : playerObj ? (
 	      <DraggableCellChip player={playerObj} round={round} teamId={teamId} disabled={disabled} />
 	    ) : (
-	      <div className="text-gray-400 dark:text-gray-500 text-sm italic min-h-[1.5rem]">&nbsp;</div>
+	      <div
+	        role="button"
+	        tabIndex={0}
+	        onClick={handleEmptyClick}
+	        onKeyDown={(e) => {
+	          if (e.key === 'Enter' || e.key === ' ') {
+	            e.preventDefault()
+	            handleEmptyClick()
+	          }
+	        }}
+	        className={`text-sm min-h-[1.5rem] ${isEmpty ? 'cursor-pointer text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/20 rounded px-1 -mx-1' : 'text-gray-400 dark:text-gray-500 italic'}`}
+	        title={isEmpty ? 'Click to type a player name' : undefined}
+	        aria-label={isEmpty ? `Pick player for round ${round}` : undefined}
+	      >
+	        {isEmpty ? 'Click to add…' : '\u00A0'}
+	      </div>
 	    )}
 	  </td>
 	)
 })
+
+/**
+ * Popover for picking a player by typing. Rendered in a portal; only valid players can be selected.
+ */
+function PlayerPickerPopover({
+	anchorRect,
+	players,
+	onSelect,
+	onCancel,
+}: {
+	anchorRect: DOMRect
+	players: Player[]
+	onSelect: (playerId: string) => void
+	onCancel: () => void
+}) {
+	const [query, setQuery] = useState('')
+	const [highlightedIndex, setHighlightedIndex] = useState(0)
+	const inputRef = useRef<HTMLInputElement>(null)
+	const listRef = useRef<HTMLDivElement>(null)
+	const highlightedRef = useRef<HTMLButtonElement>(null)
+
+	const filtered = useMemo(() => {
+		const q = query.trim().toLowerCase()
+		if (!q) return players.slice(0, 50)
+		return players.filter(
+			(p) =>
+				p.name.toLowerCase().includes(q) ||
+				(p.team !== null && p.team.toLowerCase().includes(q))
+		).slice(0, 50)
+	}, [players, query])
+
+	useEffect(() => {
+		inputRef.current?.focus()
+		setHighlightedIndex(0)
+	}, [])
+
+	useEffect(() => {
+		setHighlightedIndex((i) => (filtered.length ? Math.min(i, filtered.length - 1) : 0))
+	}, [filtered.length])
+
+	useEffect(() => {
+		highlightedRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+	}, [highlightedIndex])
+
+	const handleKeyDown = useCallback(
+		(e: React.KeyboardEvent) => {
+			if (e.key === 'Escape') {
+				e.preventDefault()
+				onCancel()
+				return
+			}
+			if (e.key === 'ArrowDown') {
+				e.preventDefault()
+				setHighlightedIndex((i) => (i + 1) % Math.max(1, filtered.length))
+				return
+			}
+			if (e.key === 'ArrowUp') {
+				e.preventDefault()
+				setHighlightedIndex((i) => (i - 1 + filtered.length) % Math.max(1, filtered.length))
+				return
+			}
+			if (e.key === 'Enter' && filtered[highlightedIndex]) {
+				e.preventDefault()
+				onSelect(filtered[highlightedIndex].id)
+			}
+		},
+		[filtered, highlightedIndex, onCancel, onSelect]
+	)
+
+	const handleClickOutside = useCallback(
+		(e: MouseEvent) => {
+			const el = e.target as Node
+			if (listRef.current?.contains(el) || inputRef.current?.contains(el)) return
+			onCancel()
+		},
+		[onCancel]
+	)
+
+	useEffect(() => {
+		document.addEventListener('mousedown', handleClickOutside)
+		return () => document.removeEventListener('mousedown', handleClickOutside)
+	}, [handleClickOutside])
+
+	if (typeof document === 'undefined') return null
+
+	const popover = (
+		<div
+			role="dialog"
+			aria-label="Pick a player"
+			className="fixed z-50 min-w-[12rem] max-w-[20rem] rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-lg py-2"
+			style={{
+				top: anchorRect.bottom + 4,
+				left: anchorRect.left,
+			}}
+			ref={listRef}
+		>
+			<div className="px-2 pb-2">
+				<input
+					ref={inputRef}
+					type="text"
+					value={query}
+					onChange={(e) => setQuery(e.target.value)}
+					onKeyDown={handleKeyDown}
+					placeholder="Type player name..."
+					className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+					aria-autocomplete="list"
+					aria-expanded="true"
+					aria-controls="player-picker-list"
+				/>
+			</div>
+			<div
+				id="player-picker-list"
+				role="listbox"
+				className="max-h-[14rem] overflow-y-auto"
+			>
+				{filtered.length === 0 ? (
+					<div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
+						No matching players
+					</div>
+				) : (
+					filtered.map((p, i) => (
+						<button
+							key={p.id}
+							ref={i === highlightedIndex ? highlightedRef : undefined}
+							type="button"
+							role="option"
+							aria-selected={i === highlightedIndex}
+							className={`w-full text-left px-3 py-2 text-sm truncate ${
+								i === highlightedIndex
+									? 'bg-indigo-100 dark:bg-indigo-900/50 text-gray-900 dark:text-gray-100'
+									: 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+							}`}
+							onClick={() => onSelect(p.id)}
+							onMouseEnter={() => setHighlightedIndex(i)}
+						>
+							{p.team ? `${p.name} (${p.team})` : p.name}
+						</button>
+					))
+				)}
+			</div>
+		</div>
+	)
+
+	return createPortal(popover, document.body)
+}
 
 /**
  * Draggable chip for a player in the pool. Can be dropped onto cells or back to the pool.
@@ -338,6 +527,8 @@ function DraftSubmission() {
 	const [error, setError] = useState('')
 	const [submission, setSubmission] = useState<Submission | null>(null)
 	const [searchTerm, setSearchTerm] = useState('')
+	const [editingCell, setEditingCell] = useState<EditingCell | null>(null)
+	const [pickerAnchorRect, setPickerAnchorRect] = useState<DOMRect | null>(null)
 
 	const sensors = useSensors(
 	  useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -466,6 +657,33 @@ function DraftSubmission() {
 	  })
 	  setShowSavedState(false)
 	}
+
+	const handleEmptySlotClick = useCallback((round: number, teamId: string, anchorEl: HTMLElement) => {
+		setEditingCell({ round, teamId })
+		setPickerAnchorRect(anchorEl.getBoundingClientRect())
+	}, [])
+
+	const handlePlacePlayerInSlot = useCallback(
+		(round: number, teamId: string, playerId: string) => {
+			setGrid((g) => {
+				const next = { ...g }
+				for (const key of Object.keys(next)) {
+					if (next[key] === playerId) delete next[key]
+				}
+				next[`${round}-${teamId}`] = playerId
+				return next
+			})
+			setEditingCell(null)
+			setPickerAnchorRect(null)
+			setShowSavedState(false)
+		},
+		[]
+	)
+
+	const handleCancelPicker = useCallback(() => {
+		setEditingCell(null)
+		setPickerAnchorRect(null)
+	}, [])
 
 	const handleSave = async () => {
 	  if (!eventCode || !event) return
@@ -642,7 +860,7 @@ function DraftSubmission() {
 	            <div>
 	              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Draft board</h2>
 	              <p className="text-gray-600 dark:text-gray-400 mb-2">
-	                Click and drag each player from the Players list onto a slot on the board. Each column is a team and each slot is one pick. You can move players between slots or drag them back to the list to remove them.
+	                Click and drag each player from the Players list onto a slot on the board, or click an empty slot and type a player name to place them. Each column is a team and each slot is one pick. You can move players between slots or drag them back to the list to remove them.
 	              </p>
 	              <p className="text-gray-600 dark:text-gray-400">
 	                Columns follow your team order above. Save anytime. Whatever you have saved when the draft starts will count.
@@ -662,6 +880,17 @@ function DraftSubmission() {
 	              </button>
 	            )}
 	          </div>
+
+	          {editingCell && pickerAnchorRect && (
+	            <PlayerPickerPopover
+	              anchorRect={pickerAnchorRect}
+	              players={players}
+	              onSelect={(playerId) =>
+	                handlePlacePlayerInSlot(editingCell.round, editingCell.teamId, playerId)
+	              }
+	              onCancel={handleCancelPicker}
+	            />
+	          )}
 
 	          <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
 	        <div className={`flex flex-col gap-6 ${numTeams >= 5 ? '' : 'lg:flex-row'}`}>
@@ -715,6 +944,8 @@ function DraftSubmission() {
 	                            playerId={grid[`${round}-${teamId}`]}
 	                            players={players}
 	                            disabled={isLocked}
+	                            editingCell={editingCell}
+	                            onEmptySlotClick={isLocked ? undefined : handleEmptySlotClick}
 	                          />
 	                        ))}
 	                      </tr>
@@ -731,7 +962,7 @@ function DraftSubmission() {
 	              <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex flex-col gap-2">
 	                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Players</h3>
 	                <p className="text-sm text-gray-500 dark:text-gray-400">
-	                  Drag each name onto a slot on the board.
+	                  Drag each name onto a slot, or click an empty slot and type to add a player.
 	                </p>
 	                <input
 	                  type="text"
