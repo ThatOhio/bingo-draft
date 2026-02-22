@@ -694,7 +694,7 @@ function AdminDashboard() {
                         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Team draft order</h3>
                         <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
                           {eventDetails.draftOrder
-                            ? 'Column order on the live draft board (display only; who picks when is fixed after Initialize). Drag to reorder, then Save.'
+                            ? 'Drag to reorder, then Save. If no picks have been made yet, this updates the real pick order (snake) so the draft runs in this order. Once picks exist, this only changes column display on the live board.'
                             : 'Drag teams to set which picks 1st, 2nd, 3rd, etc. in round 1. Locked once you Initialize Draft.'}
                         </p>
 	                        {(() => {

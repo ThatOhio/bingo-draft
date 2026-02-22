@@ -231,7 +231,9 @@ const teamDraftOrderSchema = z.object({
 })
 
 // Set team draft order (admin only): which team picks 1st, 2nd, etc.
-// Before initialize: sets order used when initializing. After: sets column display order on live draft board only.
+// Before initialize: sets order used when initializing.
+// After initialize, no picks yet: rebuilds actual pick order (snake) from new order so the "true" draft uses it.
+// After initialize, picks already made: only updates column display order on live draft board.
 router.put('/:id/team-draft-order', authenticate, requireRole('ADMIN'), async (req: AuthRequest, res) => {
 	try {
 	  const { id } = req.params
@@ -262,6 +264,33 @@ router.put('/:id/team-draft-order', authenticate, requireRole('ADMIN'), async (r
 	    where: { id },
 	    data: { teamDraftOrder: teamOrder },
 	  })
+
+	  // If draft is initialized but no picks have been made, rebuild the snake so the real pick order matches the new team order.
+	  if (event.draftOrder) {
+	    const pickCount = await prisma.draftPick.count({ where: { eventId: id } })
+	    if (pickCount === 0) {
+	      const baseOrder = teamOrder
+	      const snakeOrder: string[] = []
+	      snakeOrder.push(...baseOrder)
+	      const maxRounds = Math.ceil(200 / baseOrder.length)
+	      for (let round = 2; round <= maxRounds; round++) {
+	        if (round % 2 === 0) {
+	          snakeOrder.push(...[...baseOrder].reverse())
+	        } else {
+	          snakeOrder.push(...baseOrder)
+	        }
+	      }
+	      await prisma.draftOrder.update({
+	        where: { eventId: id },
+	        data: {
+	          teamOrder: snakeOrder,
+	          currentPick: 0,
+	          currentRound: 1,
+	          isReversed: false,
+	        },
+	      })
+	    }
+	  }
 
 	  res.json({ success: true, teamOrder })
 	} catch (error) {
