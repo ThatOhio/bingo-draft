@@ -43,6 +43,8 @@ interface DraftState {
 	picks: DraftPick[]
 	availablePlayers: Player[]
 	currentTeam: Team | null
+	/** Column order on draft board (admin can change during draft). When set, use for display; else use draftOrder round-1. */
+	teamDraftOrder?: string[]
 }
 
 interface LiveDraftEvent {
@@ -209,6 +211,18 @@ function LiveDraft() {
 	const isAdmin = user?.role === 'ADMIN'
 	const canPauseResume = isAdmin && event && (event.status === 'DRAFTING' || event.status === 'PAUSED')
 	const numTeams = draftState.teams.length || 1
+	const draftBoardColumnOrder = ((): string[] => {
+	  const teamIds = draftState.teams.map((t) => t.id)
+	  if (draftState.teamDraftOrder?.length === numTeams
+	    && teamIds.every((id) => draftState.teamDraftOrder!.includes(id))
+	    && new Set(draftState.teamDraftOrder).size === numTeams) {
+	    return draftState.teamDraftOrder
+	  }
+	  if (draftState.draftOrder) {
+	    return draftState.draftOrder.teamOrder.slice(0, numTeams)
+	  }
+	  return teamIds
+	})()
 	const useWideLayout = numTeams >= 6
 	const handleSelectPlayer = (playerId: string) => () => {
 		if (canMakePick) setSelectedPlayer(playerId)
@@ -299,10 +313,7 @@ function LiveDraft() {
 	                    <th className="text-left p-2 border-b border-gray-200 dark:border-gray-700 font-semibold text-gray-700 dark:text-gray-300 sticky left-0 bg-white dark:bg-gray-800 z-10 min-w-[4rem]">
 	                      Round
 	                    </th>
-	                    {(draftState.draftOrder
-	                      ? draftState.draftOrder.teamOrder.slice(0, draftState.teams.length)
-	                      : draftState.teams.map((t) => t.id)
-	                    ).map((teamId) => {
+	                    {draftBoardColumnOrder.map((teamId) => {
 	                      const team = draftState.teams.find((t) => t.id === teamId)
 	                      const isCurrentTeam =
 	                        draftState.draftOrder &&
@@ -340,10 +351,7 @@ function LiveDraft() {
 	                      <td className="p-2 border-b border-gray-100 dark:border-gray-700 font-medium text-gray-600 dark:text-gray-400 sticky left-0 bg-white dark:bg-gray-800 z-10">
 	                        {round}
 	                      </td>
-	                      {(draftState.draftOrder
-	                        ? draftState.draftOrder.teamOrder.slice(0, draftState.teams.length)
-	                        : draftState.teams.map((t) => t.id)
-	                      ).map((teamId) => {
+	                      {draftBoardColumnOrder.map((teamId) => {
 	                        const team = draftState.teams.find((t) => t.id === teamId)
 	                        if (!team) return null
 	                        const pick = team.draftPicks.find((p) => p.round === round)
@@ -492,10 +500,7 @@ function LiveDraft() {
 	                      <th className="text-left p-2 border-b border-gray-200 dark:border-gray-700 font-semibold text-gray-700 dark:text-gray-300 sticky left-0 bg-white dark:bg-gray-800 z-10 min-w-[4rem]">
 	                        Round
 	                      </th>
-	                      {(draftState.draftOrder
-	                        ? draftState.draftOrder.teamOrder.slice(0, draftState.teams.length)
-	                        : draftState.teams.map((t) => t.id)
-	                      ).map((teamId) => {
+	                      {draftBoardColumnOrder.map((teamId) => {
 	                        const team = draftState.teams.find((t) => t.id === teamId)
 	                        const isCurrentTeam =
 	                          draftState.draftOrder &&
@@ -533,10 +538,7 @@ function LiveDraft() {
 	                        <td className="p-2 border-b border-gray-100 dark:border-gray-700 font-medium text-gray-600 dark:text-gray-400 sticky left-0 bg-white dark:bg-gray-800 z-10">
 	                          {round}
 	                        </td>
-	                        {(draftState.draftOrder
-	                          ? draftState.draftOrder.teamOrder.slice(0, draftState.teams.length)
-	                          : draftState.teams.map((t) => t.id)
-	                        ).map((teamId) => {
+	                        {draftBoardColumnOrder.map((teamId) => {
 	                          const team = draftState.teams.find((t) => t.id === teamId)
 	                          if (!team) return null
 	                          const pick = team.draftPicks.find((p) => p.round === round)

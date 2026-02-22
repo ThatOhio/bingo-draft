@@ -70,7 +70,7 @@ interface EventDetails {
 	teams?: EventDetailsTeam[]
 	players?: EventDetailsPlayer[]
 	teamDraftOrder?: string[]
-	draftOrder?: { currentRound: number; currentPick: number }
+	draftOrder?: { currentRound: number; currentPick: number; teamOrder?: string[] }
 }
 
 interface CreateEventDto {
@@ -192,6 +192,12 @@ function AdminDashboard() {
 	  const ids = ed.teams.map((t: EventDetailsTeam) => t.id)
 	  if (ed.teamDraftOrder?.length === ids.length && ids.every((id: string) => ed.teamDraftOrder!.includes(id)))
 	    return ed.teamDraftOrder
+	  // When draft is initialized, round-1 order is first N of draftOrder.teamOrder
+	  if (ed.draftOrder?.teamOrder?.length) {
+	    const round1 = ed.draftOrder.teamOrder.slice(0, ids.length)
+	    if (round1.length === ids.length && ids.every((id: string) => round1.includes(id)))
+	      return round1
+	  }
 	  return ed.teams
 	    .slice()
 	    .sort((a: EventDetailsTeam, b: EventDetailsTeam) => a.name.localeCompare(b.name))
@@ -682,13 +688,15 @@ function AdminDashboard() {
 	                      </div>
 	                    )}
 
-	                    {/* Team draft order (1st, 2nd, ... to draft). Editable until Initialize; drag to reorder. */}
-	                    {eventDetails && eventDetails.teams && eventDetails.teams.length > 0 && !eventDetails.draftOrder && (
-	                      <div className="bg-white dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 p-4 rounded-lg">
-	                        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Team draft order</h3>
-	                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-	                          Drag teams to set which picks 1st, 2nd, 3rd, etc. in round 1. Locked once you Initialize Draft.
-	                        </p>
+                    {/* Team draft order: before initialize sets pick order; during draft sets column order on live board only. */}
+                    {eventDetails && eventDetails.teams && eventDetails.teams.length > 0 && (
+                      <div className="bg-white dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 p-4 rounded-lg">
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Team draft order</h3>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                          {eventDetails.draftOrder
+                            ? 'Column order on the live draft board (display only; who picks when is fixed after Initialize). Drag to reorder, then Save.'
+                            : 'Drag teams to set which picks 1st, 2nd, 3rd, etc. in round 1. Locked once you Initialize Draft.'}
+                        </p>
 	                        {(() => {
 	                          const teams = eventDetails.teams
 	                          const tlen = teams.length

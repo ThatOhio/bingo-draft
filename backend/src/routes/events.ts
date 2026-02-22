@@ -230,7 +230,8 @@ const teamDraftOrderSchema = z.object({
 	teamOrder: z.array(z.string()),
 })
 
-// Set team draft order (admin only): which team picks 1st, 2nd, etc. Editable until initialize.
+// Set team draft order (admin only): which team picks 1st, 2nd, etc.
+// Before initialize: sets order used when initializing. After: sets column display order on live draft board only.
 router.put('/:id/team-draft-order', authenticate, requireRole('ADMIN'), async (req: AuthRequest, res) => {
 	try {
 	  const { id } = req.params
@@ -243,9 +244,6 @@ router.put('/:id/team-draft-order', authenticate, requireRole('ADMIN'), async (r
 
 	  if (!event) {
 	    return res.status(404).json({ error: 'Event not found' })
-	  }
-	  if (event.draftOrder) {
-	    return res.status(400).json({ error: 'Draft already initialized; team order cannot be changed' })
 	  }
 
 	  const teamIds = event.teams.map((t) => t.id)

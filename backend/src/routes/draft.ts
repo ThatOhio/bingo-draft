@@ -438,6 +438,11 @@ router.get('/:eventId/state', async (req, res) => {
 	  const draftedPlayerIds = event.draftPicks.map(p => p.playerId)
 	  const availablePlayers = event.players.filter(p => !draftedPlayerIds.includes(p.id))
 
+	  const teamIds = event.teams.map(t => t.id)
+	  const validDisplayOrder = event.teamDraftOrder?.length === teamIds.length
+	    && teamIds.every(id => event.teamDraftOrder!.includes(id))
+	    && new Set(event.teamDraftOrder).size === event.teamDraftOrder!.length
+
 	  res.json({
 	    draftOrder: event.draftOrder,
 	    teams: event.teams,
@@ -446,6 +451,7 @@ router.get('/:eventId/state', async (req, res) => {
 	    currentTeam: event.draftOrder
 	      ? event.teams.find(t => t.id === event.draftOrder!.teamOrder[event.draftOrder!.currentPick])
 	      : null,
+	    teamDraftOrder: validDisplayOrder ? event.teamDraftOrder : undefined,
 	  })
 	} catch (error) {
 	  console.error('Get draft state error:', error)
