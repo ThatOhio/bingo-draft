@@ -74,6 +74,12 @@ this was a real bug that silently fell back to the default `JWT_SECRET`.
 conditional `updateMany` inside a transaction, backed by unique constraints on
 `(eventId, playerId)` and `(eventId, pickNumber)`. Keep both halves.
 
+**`Event.fantasyEnabled` gates a whole set of pages.** When false the event is live-draft
+only: the home card, the event detail page, the prediction page, and the stats page all
+route to `/event/:code/draft` (`useFantasyRedirect`), `submit-order` rejects writes, and
+live draft's back link points at home instead of the event page — otherwise Back would
+bounce straight off the redirect. Adding another fantasy-only page means adding the guard.
+
 **Never `alert()` or `confirm()`.** They block the event loop and stall socket updates.
 Use `useToast()` and `useConfirm()`.
 

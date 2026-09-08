@@ -45,6 +45,7 @@ model Event {
   draftDeadline   DateTime?
   draftStartTime  DateTime?
   teamDraftOrder  String[]    @default([])  // Team IDs in pick order (1st, 2nd, ...). Editable until initialize; empty = use teams by name.
+  fantasyEnabled  Boolean     @default(true)  // False = live draft only: no predictions, no stats, event links straight to the draft board.
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 

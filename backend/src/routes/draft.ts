@@ -56,6 +56,11 @@ router.post('/:eventId/submit-order', authenticate, async (req: AuthRequest, res
 	    return res.status(404).json({ error: 'Event not found' })
 	  }
 
+	  // Live-draft-only events have no prediction UI, so nothing should be writing here.
+	  if (!event.fantasyEnabled) {
+	    return res.status(400).json({ error: 'This event does not use fantasy predictions' })
+	  }
+
 	  const draftStarted = event.status === 'DRAFTING' || event.status === 'PAUSED' || event.status === 'COMPLETED'
 	  if (event.draftDeadline && new Date() > new Date(event.draftDeadline)) {
 	    return res.status(400).json({ error: 'Draft deadline has passed' })

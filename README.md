@@ -6,6 +6,8 @@ A full-stack web app for fantasy draft events: real-time updates, prediction sub
 
 - **User Authentication**: Sign in with Discord (first sign-in creates the user) and role-based access control (User, Admin)
 - **Event Management**: Create and manage draft events with customizable player pools
+- **Fantasy toggle**: Events default to the full prediction experience, but admins can turn
+  fantasy off for events that only use the live draft — those link straight to the draft board
 - **Draft Order Submissions**: Users can submit their predictions for the draft order via drag-and-drop interface
 - **Live Draft**: Real-time snake draft with WebSocket updates for all participants
 - **Stats & Rankings**: Compare predictions to actual results with detailed analytics and leaderboards
@@ -177,6 +179,10 @@ npx serve -s dist
 3. Import players (JSON or pasteable text) via the API or admin dashboard.
 4. Create teams and optionally assign captains.
 5. Set draft deadline and start time if needed.
+6. If the event is only using the live draft (no predictions), turn off **Fantasy
+   predictions** in Manage Event. The event then links straight to the draft board and the
+   prediction and stats pages are skipped. Existing predictions are kept, not deleted, so
+   the toggle is reversible.
 
 ### Submitting Draft Predictions
 

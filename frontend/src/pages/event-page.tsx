@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/auth-context'
 import { AppHeader } from '../components/app-header'
+import { useFantasyRedirect } from '../hooks/use-fantasy-redirect'
 import { api } from '../lib/api-client'
 
 interface Event {
@@ -12,6 +13,7 @@ interface Event {
 	status: string
 	draftDeadline: string | null
 	draftStartTime: string | null
+	fantasyEnabled?: boolean
 	players: Array<{ id: string; name: string; team: string | null }>
 	teams: Array<{ id: string; name: string }>
 	_count: {
@@ -42,6 +44,8 @@ function EventPage() {
 	useEffect(() => {
 		if (eventCode) fetchEvent()
 	}, [eventCode, fetchEvent])
+
+	useFantasyRedirect(event?.fantasyEnabled, eventCode)
 
 	// Runs off the already-loaded event rather than re-fetching it for its id.
 	useEffect(() => {
@@ -78,6 +82,16 @@ function EventPage() {
 		return (
 			<div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
 				<div className="text-lg text-red-600 dark:text-red-400">Event not found</div>
+			</div>
+		)
+	}
+
+	// Redirecting to the live draft; render the loading state rather than a frame of
+	// content the viewer is about to be navigated away from.
+	if (event.fantasyEnabled === false) {
+		return (
+			<div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+				<div className="text-lg text-gray-600 dark:text-gray-400">Opening live draft...</div>
 			</div>
 		)
 	}

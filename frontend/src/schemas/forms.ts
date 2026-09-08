@@ -1,12 +1,16 @@
 import { z } from 'zod'
 
-/** Create event: name, eventCode required; optional description and datetimes. */
+/**
+ * Create event: name, eventCode required; optional description and datetimes.
+ * fantasyEnabled defaults to true — off makes the event live-draft only.
+ */
 export const createEventSchema = z.object({
 	name: z.string().min(1, 'Event name is required'),
 	eventCode: z.string().min(3, 'Code must be at least 3 characters').max(20, 'Code must be at most 20 characters'),
 	description: z.string().optional(),
 	draftDeadline: z.string().optional(),
 	draftStartTime: z.string().optional(),
+	fantasyEnabled: z.boolean(),
 })
 
 /** Create team: name required; captains optional (empty rows filtered out on submit). */

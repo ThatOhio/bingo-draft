@@ -11,6 +11,7 @@ interface Event {
 	status: string
 	draftDeadline: string | null
 	draftStartTime: string | null
+	fantasyEnabled?: boolean
 	_count: {
 		submissions: number
 		players: number
@@ -52,10 +53,17 @@ function Home() {
 							<div className="text-center py-8 text-gray-500 dark:text-gray-400">No events found</div>
 						) : (
 							<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-								{events.map((event) => (
+								{events.map((event) => {
+								// Live-draft-only events skip the detail page entirely.
+								const fantasyEnabled = event.fantasyEnabled !== false
+								return (
 									<Link
 										key={event.id}
-										to={`/event/${event.eventCode}`}
+										to={
+											fantasyEnabled
+												? `/event/${event.eventCode}`
+												: `/event/${event.eventCode}/draft`
+										}
 										className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900/50 p-6 hover:shadow-lg dark:hover:shadow-gray-900/70 transition-shadow"
 									>
 										<h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
@@ -73,10 +81,15 @@ function Home() {
 										<div className="mt-4 text-sm text-gray-600 dark:text-gray-400">
 											<p>Players: {event._count.players}</p>
 											<p>Teams: {event._count.teams}</p>
-											<p>Predictions: {event._count.submissions}</p>
+											{fantasyEnabled ? (
+												<p>Predictions: {event._count.submissions}</p>
+											) : (
+												<p>Live draft only</p>
+											)}
 										</div>
 									</Link>
-								))}
+								)
+							})}
 							</div>
 						)}
 					</div>

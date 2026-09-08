@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useParams, useSearchParams, Link } from 'react-router-dom'
+import { useParams, useSearchParams, useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/auth-context'
 import { AppHeader } from '../components/app-header'
 import { InfoTooltip } from '../components/info-tooltip'
@@ -132,6 +132,7 @@ interface AggregateStats {
 function Stats() {
 	const { eventCode } = useParams<{ eventCode: string }>()
 	const [searchParams, setSearchParams] = useSearchParams()
+	const navigate = useNavigate()
 	const { user } = useAuth()
 	const [rankings, setRankings] = useState<Ranking[]>([])
 	const [viewedUserStats, setViewedUserStats] = useState<UserStats | null>(null)
@@ -157,6 +158,12 @@ function Stats() {
 	    const eventRes = await api.get(`/api/events/code/${eventCode}`)
 	    const event = eventRes.data.event
 	    const eventId = event.id
+
+	    // Live-draft-only events have no predictions to score.
+	    if (event.fantasyEnabled === false) {
+	      navigate(`/event/${eventCode}/draft`, { replace: true })
+	      return
+	    }
 
 	    if (event.status !== 'COMPLETED') {
 	      setDraftNotFinished(true)
@@ -217,7 +224,7 @@ function Stats() {
 	  } finally {
 	    setLoading(false)
 	  }
-	}, [eventCode, user, viewUserId, setSearchParams])
+	}, [eventCode, user, viewUserId, setSearchParams, navigate])
 
 	useEffect(() => {
 	  if (eventCode) {

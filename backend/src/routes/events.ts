@@ -13,6 +13,7 @@ const createEventSchema = z.object({
 	eventCode: z.string().min(3).max(20),
 	draftDeadline: z.string().datetime().optional(),
 	draftStartTime: z.string().datetime().optional(),
+	fantasyEnabled: z.boolean().optional(),
 })
 
 const updateEventSchema = z.object({
@@ -21,6 +22,7 @@ const updateEventSchema = z.object({
 	status: z.enum(['PLANNED', 'OPEN', 'DRAFTING', 'PAUSED', 'COMPLETED', 'CLOSED']).optional(),
 	draftDeadline: z.string().datetime().optional(),
 	draftStartTime: z.string().datetime().optional(),
+	fantasyEnabled: z.boolean().optional(),
 })
 
 interface ImportPlayer {

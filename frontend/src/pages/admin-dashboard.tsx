@@ -69,6 +69,7 @@ interface EventDetails {
 	id: string
 	status: string
 	description?: string | null
+	fantasyEnabled?: boolean
 	teams?: EventDetailsTeam[]
 	players?: EventDetailsPlayer[]
 	teamDraftOrder?: string[]
@@ -81,6 +82,7 @@ interface CreateEventDto {
 	description?: string
 	draftDeadline?: string
 	draftStartTime?: string
+	fantasyEnabled?: boolean
 }
 
 
@@ -128,7 +130,14 @@ function AdminDashboard() {
 
 	const createEventForm = useForm<CreateEventForm>({
 		resolver: zodResolver(createEventSchema),
-		defaultValues: { name: '', eventCode: '', description: '', draftDeadline: '', draftStartTime: '' },
+		defaultValues: {
+			name: '',
+			eventCode: '',
+			description: '',
+			draftDeadline: '',
+			draftStartTime: '',
+			fantasyEnabled: true,
+		},
 	})
 
 	const bulkImportForm = useForm<BulkImportForm>({
@@ -297,6 +306,7 @@ function AdminDashboard() {
 	    const eventData: CreateEventDto = {
 	      name: data.name,
 	      eventCode: data.eventCode,
+	      fantasyEnabled: data.fantasyEnabled,
 	    }
 	    if (data.description?.trim()) eventData.description = data.description
 	    if (data.draftDeadline) eventData.draftDeadline = new Date(data.draftDeadline).toISOString()
@@ -409,6 +419,21 @@ function AdminDashboard() {
 	    fetchData()
 	  } catch (err: unknown) {
 	    showError(getErrorMessage(err, 'Failed to update event status'))
+	  }
+	}
+
+	const handleUpdateFantasyEnabled = async (eventId: string, enabled: boolean) => {
+	  try {
+	    await api.put(`/api/events/${eventId}`, { fantasyEnabled: enabled })
+	    showSuccess(
+	      enabled
+	        ? 'Fantasy predictions enabled.'
+	        : 'Fantasy predictions disabled. This event now opens straight to the live draft.'
+	    )
+	    fetchEventDetails(eventId)
+	    fetchData()
+	  } catch (err: unknown) {
+	    showError(getErrorMessage(err, 'Failed to update fantasy predictions'))
 	  }
 	}
 
@@ -675,6 +700,32 @@ function AdminDashboard() {
 	                            Draft initialized - Round {eventDetails.draftOrder.currentRound}, Pick {eventDetails.draftOrder.currentPick + 1}
 	                          </p>
 	                        )}
+	                      </div>
+	                    )}
+
+	                    {/* Fantasy predictions toggle */}
+	                    {eventDetails && (
+	                      <div className="bg-white dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 p-4 rounded-lg">
+	                        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Fantasy predictions</h3>
+	                        <label className="flex items-start gap-3 cursor-pointer">
+	                          <input
+	                            type="checkbox"
+	                            checked={eventDetails.fantasyEnabled !== false}
+	                            onChange={(e) => handleUpdateFantasyEnabled(selectedEvent.id, e.target.checked)}
+	                            className="mt-1 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500"
+	                          />
+	                          <span>
+	                            <span className="font-medium text-gray-900 dark:text-gray-100">
+	                              Enable fantasy predictions
+	                            </span>
+	                            <span className="block text-sm text-gray-600 dark:text-gray-400 mt-1">
+	                              On: users submit predicted draft orders before the draft and are scored
+	                              afterwards. Off: the event opens straight to the live draft board, and the
+	                              prediction and stats pages are skipped. Existing predictions are kept, not
+	                              deleted, so turning it back on restores them.
+	                            </span>
+	                          </span>
+	                        </label>
 	                      </div>
 	                    )}
 
@@ -1065,6 +1116,25 @@ function AdminDashboard() {
 	                    />
 	                  </div>
 
+	                  <div className="rounded-md border border-gray-200 dark:border-gray-600 p-3">
+	                    <label className="flex items-start gap-3 cursor-pointer">
+	                      <input
+	                        type="checkbox"
+	                        className="mt-1 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500"
+	                        {...createEventForm.register('fantasyEnabled')}
+	                      />
+	                      <span>
+	                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+	                          Enable fantasy predictions
+	                        </span>
+	                        <span className="block text-xs text-gray-500 dark:text-gray-400 mt-1">
+	                          On: users submit predicted draft orders and are scored afterwards. Off: the
+	                          event opens straight to the live draft board. Changeable later in Manage Event.
+	                        </span>
+	                      </span>
+	                    </label>
+	                  </div>
+
 	                  <div className="grid grid-cols-2 gap-4">
 	                    <div>
 	                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -1076,7 +1146,7 @@ function AdminDashboard() {
 	                        {...createEventForm.register('draftDeadline')}
 	                      />
 	                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-	                        When predictions lock
+	                        When predictions lock (fantasy only)
 	                      </p>
 	                    </div>
 

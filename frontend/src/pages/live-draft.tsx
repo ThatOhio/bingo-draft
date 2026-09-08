@@ -30,6 +30,8 @@ function LiveDraft() {
 	const confirm = useConfirm()
 
 	const [eventId, setEventId] = useState<string | null>(null)
+	// Live-draft-only events have no event detail page to go back to.
+	const [fantasyEnabled, setFantasyEnabled] = useState(true)
 	const [draftState, setDraftState] = useState<DraftState | null>(null)
 	const [loading, setLoading] = useState(true)
 	const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null)
@@ -46,7 +48,9 @@ function LiveDraft() {
 		api
 			.get(`/api/events/code/${eventCode}`)
 			.then((res) => {
-				if (!cancelled) setEventId(res.data.event.id)
+				if (cancelled) return
+				setEventId(res.data.event.id)
+				setFantasyEnabled(res.data.event.fantasyEnabled !== false)
 			})
 			.catch((error) => {
 				console.error('Failed to fetch event:', error)
@@ -233,7 +237,7 @@ function LiveDraft() {
 	return (
 		<div className="min-h-screen bg-gray-50 dark:bg-gray-900">
 			<AppHeader
-				backLink={`/event/${eventCode}`}
+				backLink={fantasyEnabled ? `/event/${eventCode}` : '/'}
 				title="Live Draft"
 				rightSlot={
 					isAdmin ? (
@@ -281,6 +285,11 @@ function LiveDraft() {
 									Pick #{draftState.draftOrder ? draftState.draftOrder.currentPick + 1 : 0} of{' '}
 									{draftState.totalSlots}
 								</p>
+								{!draftState.draftOrder && (
+									<div className="mt-2 px-3 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 rounded text-sm font-medium">
+										The draft has not been initialized yet.
+									</div>
+								)}
 								{draftState.eventStatus === 'PAUSED' && (
 									<div className="mt-2 px-3 py-1 bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-200 rounded text-sm font-medium">
 										⏸ Draft Paused

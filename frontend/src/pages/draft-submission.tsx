@@ -22,6 +22,7 @@ import {
 import { api } from '../lib/api-client'
 import { useAuth } from '../contexts/auth-context'
 import { AppHeader } from '../components/app-header'
+import { useFantasyRedirect } from '../hooks/use-fantasy-redirect'
 import { getErrorMessage } from '../utils/get-error-message'
 
 interface Player {
@@ -494,7 +495,9 @@ function SortableTeamRowPrediction({
 function DraftSubmission() {
 	const { eventCode } = useParams<{ eventCode: string }>()
 	useAuth()
-	const [event, setEvent] = useState<{ id: string; players: Player[]; teams: Team[] } | null>(null)
+	const [event, setEvent] = useState<
+		{ id: string; players: Player[]; teams: Team[]; fantasyEnabled?: boolean } | null
+	>(null)
 	const [grid, setGrid] = useState<Record<string, string>>({})
 	const [teamOrder, setTeamOrder] = useState<string[]>([])
 	const [teamOrderLocked, setTeamOrderLocked] = useState(false)
@@ -561,6 +564,8 @@ function DraftSubmission() {
 	useEffect(() => {
 	  if (eventCode) fetchEventData()
 	}, [eventCode, fetchEventData])
+
+	useFantasyRedirect(event?.fantasyEnabled, eventCode)
 
 	const teamIds = useMemo(() => teamOrder.length > 0 ? teamOrder : (event?.teams || []).map((t) => t.id), [teamOrder, event?.teams])
 	const numTeams = teamIds.length || 1
@@ -721,6 +726,16 @@ function DraftSubmission() {
 	      <div className="text-lg text-red-600 dark:text-red-400">Event not found</div>
 	    </div>
 	  )
+	}
+
+	// Redirecting to the live draft; render the loading state rather than a frame of
+	// content the viewer is about to be navigated away from.
+	if (event.fantasyEnabled === false) {
+		return (
+			<div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+				<div className="text-lg text-gray-600 dark:text-gray-400">Opening live draft...</div>
+			</div>
+		)
 	}
 
 	if (event.teams.length === 0) {
