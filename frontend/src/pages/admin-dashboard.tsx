@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import axios from 'axios'
 import {
 	DndContext,
 	closestCenter,
@@ -14,6 +13,9 @@ import {
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { AppHeader } from '../components/app-header'
+import { useToast } from '../contexts/toast-context'
+import { useConfirm } from '../contexts/confirm-context'
+import { api } from '../lib/api-client'
 import { getErrorMessage } from '../utils/get-error-message'
 import {
 	createEventSchema,
@@ -81,7 +83,6 @@ interface CreateEventDto {
 	draftStartTime?: string
 }
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
 
 /**
  * Sortable team row for team draft order. Drag handle, index, and team name.
@@ -113,6 +114,8 @@ function SortableTeamRow({
 }
 
 function AdminDashboard() {
+	const { showSuccess, showError } = useToast()
+	const confirm = useConfirm()
 	const [users, setUsers] = useState<User[]>([])
 	const [events, setEvents] = useState<Event[]>([])
 	const [loading, setLoading] = useState(true)
@@ -168,7 +171,7 @@ function AdminDashboard() {
 		} else {
 			setEditDescription('')
 		}
-	}, [selectedEvent?.id, eventDetails])
+	}, [selectedEvent, eventDetails])
 
 	const teamOrderSensors = useSensors(
 	  useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
@@ -207,8 +210,8 @@ function AdminDashboard() {
 	const fetchData = useCallback(async () => {
 	  try {
 	    const [usersResponse, eventsResponse] = await Promise.all([
-	      axios.get(`${API_URL}/api/users`),
-	      axios.get(`${API_URL}/api/events`),
+	      api.get(`/api/users`),
+	      api.get(`/api/events`),
 	    ])
 	    setUsers(usersResponse.data.users)
 	    setEvents(eventsResponse.data.events)
@@ -226,8 +229,8 @@ function AdminDashboard() {
 	const handleBulkImportSubmit = async (data: BulkImportForm, eventId: string) => {
 	  setImporting(true)
 	  try {
-	    const res = await axios.post<{ count: number; skipped: number }>(
-	      `${API_URL}/api/events/${eventId}/players/bulk-import`,
+	    const res = await api.post<{ count: number; skipped: number }>(
+	      `/api/events/${eventId}/players/bulk-import`,
 	      { text: data.text }
 	    )
 	    const { count, skipped } = res.data
@@ -235,12 +238,12 @@ function AdminDashboard() {
 	      skipped > 0
 	        ? `Added ${count} new player(s). ${skipped} already existed and were kept (e.g. captains unchanged).`
 	        : `Added ${count} player(s).`
-	    alert(message)
+	    showSuccess(message)
 	    bulkImportForm.reset()
 	    fetchEventDetails(eventId)
 	    fetchData()
 	  } catch (err: unknown) {
-	    alert(getErrorMessage(err, 'Failed to import players'))
+	    showError(getErrorMessage(err, 'Failed to import players'))
 	  } finally {
 	    setImporting(false)
 	  }
@@ -250,14 +253,17 @@ function AdminDashboard() {
 	  const lines = data.text.split('\n').map((l) => l.trim()).filter(Boolean)
 	  const names = lines.map((line) => (line.split('|').map((p) => p.trim())[0] || line))
 	  const count = names.length
-	  const confirmed = window.confirm(
-	    `Remove ${count} player(s) from this event? This will delete these players and cannot be undone.`
-	  )
+	  const confirmed = await confirm({
+	    title: `Remove ${count} player(s)?`,
+	    message: 'These players are deleted from the event. This cannot be undone.',
+	    confirmLabel: 'Remove players',
+	    destructive: true,
+	  })
 	  if (!confirmed) return
 	  setRemoving(true)
 	  try {
-	    const res = await axios.post<{ deleted: number; notFound: string[] }>(
-	      `${API_URL}/api/events/${eventId}/players/bulk-remove`,
+	    const res = await api.post<{ deleted: number; notFound: string[] }>(
+	      `/api/events/${eventId}/players/bulk-remove`,
 	      { text: data.text }
 	    )
 	    const { deleted, notFound } = res.data
@@ -265,12 +271,12 @@ function AdminDashboard() {
 	      notFound.length > 0
 	        ? `Removed ${deleted} player(s). Not found in event: ${notFound.join(', ')}`
 	        : `Removed ${deleted} player(s).`
-	    alert(message)
+	    showSuccess(message)
 	    bulkRemoveForm.reset()
 	    fetchEventDetails(eventId)
 	    fetchData()
 	  } catch (err: unknown) {
-	    alert(getErrorMessage(err, 'Failed to remove players'))
+	    showError(getErrorMessage(err, 'Failed to remove players'))
 	  } finally {
 	    setRemoving(false)
 	  }
@@ -278,10 +284,10 @@ function AdminDashboard() {
 
 	const updateUserRole = async (userId: string, newRole: string) => {
 	  try {
-	    await axios.put(`${API_URL}/api/users/${userId}/role`, { role: newRole })
+	    await api.put(`/api/users/${userId}/role`, { role: newRole })
 	    fetchData()
 	  } catch (err: unknown) {
-	    alert(getErrorMessage(err, 'Failed to update user role'))
+	    showError(getErrorMessage(err, 'Failed to update user role'))
 	  }
 	}
 
@@ -296,13 +302,13 @@ function AdminDashboard() {
 	    if (data.draftDeadline) eventData.draftDeadline = new Date(data.draftDeadline).toISOString()
 	    if (data.draftStartTime) eventData.draftStartTime = new Date(data.draftStartTime).toISOString()
 
-	    await axios.post(`${API_URL}/api/events`, eventData)
-	    alert('Event created successfully!')
+	    await api.post(`/api/events`, eventData)
+	    showSuccess('Event created successfully!')
 	    createEventForm.reset()
 	    fetchData()
 	    setActiveTab('events')
 	  } catch (err: unknown) {
-	    alert(getErrorMessage(err, 'Failed to create event'))
+	    showError(getErrorMessage(err, 'Failed to create event'))
 	  } finally {
 	    setCreatingEvent(false)
 	  }
@@ -310,7 +316,7 @@ function AdminDashboard() {
 
 	const fetchEventDetails = async (eventId: string) => {
 	  try {
-	    const response = await axios.get(`${API_URL}/api/events/${eventId}`)
+	    const response = await api.get(`/api/events/${eventId}`)
 	    setEventDetails(response.data.event)
 	  } catch (error) {
 	    console.error('Failed to fetch event details:', error)
@@ -322,16 +328,16 @@ function AdminDashboard() {
 	  const captains = data.captains.filter((c) => c.playerId && c.discordUsername.trim())
 	  setCreatingTeam(true)
 	  try {
-	    await axios.post(`${API_URL}/api/events/${selectedEvent.id}/teams`, {
+	    await api.post(`/api/events/${selectedEvent.id}/teams`, {
 	      name: data.name,
 	      captains: captains.map((c) => ({ playerId: c.playerId, discordUsername: c.discordUsername.trim() })),
 	    })
-	    alert('Team created successfully!')
+	    showSuccess('Team created successfully!')
 	    createTeamForm.reset({ name: '', captains: [] })
 	    fetchEventDetails(selectedEvent.id)
 	    fetchData()
 	  } catch (err: unknown) {
-	    alert(getErrorMessage(err, 'Failed to create team'))
+	    showError(getErrorMessage(err, 'Failed to create team'))
 	  } finally {
 	    setCreatingTeam(false)
 	  }
@@ -340,20 +346,20 @@ function AdminDashboard() {
 	const handleAddCaptain = async (teamId: string) => {
 	  const form = addCaptainByTeam[teamId]
 	  if (!form?.playerId || !form.discordUsername.trim()) {
-	    alert('Select a player and enter Discord username')
+	    showError('Select a player and enter Discord username')
 	    return
 	  }
 	  if (!selectedEvent) return
 	  setAddingCaptainToTeamId(teamId)
 	  try {
-	    await axios.post(`${API_URL}/api/events/${selectedEvent.id}/teams/${teamId}/captains`, {
+	    await api.post(`/api/events/${selectedEvent.id}/teams/${teamId}/captains`, {
 	      playerId: form.playerId,
 	      discordUsername: form.discordUsername.trim(),
 	    })
 	    setAddCaptainByTeam((prev) => ({ ...prev, [teamId]: { playerId: '', discordUsername: '' } }))
 	    fetchEventDetails(selectedEvent.id)
 	  } catch (err: unknown) {
-	    alert(getErrorMessage(err, 'Failed to add captain'))
+	    showError(getErrorMessage(err, 'Failed to add captain'))
 	  } finally {
 	    setAddingCaptainToTeamId(null)
 	  }
@@ -361,12 +367,18 @@ function AdminDashboard() {
 
 	const handleRemoveCaptain = async (teamId: string, captainId: string) => {
 	  if (!selectedEvent) return
-	  if (!confirm('Remove this captain?')) return
+	  const confirmed = await confirm({
+	    title: 'Remove this captain?',
+	    message: 'They will no longer be able to pick for this team.',
+	    confirmLabel: 'Remove captain',
+	    destructive: true,
+	  })
+	  if (!confirmed) return
 	  try {
-	    await axios.delete(`${API_URL}/api/events/${selectedEvent.id}/teams/${teamId}/captains/${captainId}`)
+	    await api.delete(`/api/events/${selectedEvent.id}/teams/${teamId}/captains/${captainId}`)
 	    fetchEventDetails(selectedEvent.id)
 	  } catch (err: unknown) {
-	    alert(getErrorMessage(err, 'Failed to remove captain'))
+	    showError(getErrorMessage(err, 'Failed to remove captain'))
 	  }
 	}
 
@@ -379,11 +391,11 @@ function AdminDashboard() {
 	    : getOrderedTeamIds(eventDetails)
 	  setSavingTeamDraftOrder(true)
 	  try {
-	    await axios.put(`${API_URL}/api/events/${selectedEvent.id}/team-draft-order`, { teamOrder: ordered })
+	    await api.put(`/api/events/${selectedEvent.id}/team-draft-order`, { teamOrder: ordered })
 	    setTeamOrderIds([])
 	    fetchEventDetails(selectedEvent.id)
 	  } catch (err: unknown) {
-	    alert(getErrorMessage(err, 'Failed to save team draft order'))
+	    showError(getErrorMessage(err, 'Failed to save team draft order'))
 	  } finally {
 	    setSavingTeamDraftOrder(false)
 	  }
@@ -391,12 +403,12 @@ function AdminDashboard() {
 
 	const handleUpdateEventStatus = async (eventId: string, newStatus: string) => {
 	  try {
-	    await axios.put(`${API_URL}/api/events/${eventId}`, { status: newStatus })
-	    alert('Event status updated!')
+	    await api.put(`/api/events/${eventId}`, { status: newStatus })
+	    showSuccess('Event status updated!')
 	    fetchEventDetails(eventId)
 	    fetchData()
 	  } catch (err: unknown) {
-	    alert(getErrorMessage(err, 'Failed to update event status'))
+	    showError(getErrorMessage(err, 'Failed to update event status'))
 	  }
 	}
 
@@ -405,37 +417,41 @@ function AdminDashboard() {
 	  setSavingDescription(true)
 	  try {
 	    const value = editDescription.trim()
-	    await axios.put(`${API_URL}/api/events/${selectedEvent.id}`, {
+	    await api.put(`/api/events/${selectedEvent.id}`, {
 	      description: value === '' ? null : value,
 	    })
-	    alert('Event description updated!')
+	    showSuccess('Event description updated!')
 	    fetchEventDetails(selectedEvent.id)
 	  } catch (err: unknown) {
-	    alert(getErrorMessage(err, 'Failed to update event description'))
+	    showError(getErrorMessage(err, 'Failed to update event description'))
 	  } finally {
 	    setSavingDescription(false)
 	  }
 	}
 
 	const handleInitializeDraft = async (eventId: string) => {
-	  if (!confirm('Initialize the draft? This will set up the snake draft order.')) {
-	    return
-	  }
+	  const confirmed = await confirm({
+	    title: 'Initialize the draft?',
+	    message:
+	      'This sets the snake draft order and opens the live draft. It can only be done before any picks are made.',
+	    confirmLabel: 'Initialize draft',
+	  })
+	  if (!confirmed) return
 
 	  try {
-	    await axios.post(`${API_URL}/api/draft/${eventId}/initialize`)
-	    alert('Draft initialized successfully!')
+	    await api.post(`/api/draft/${eventId}/initialize`)
+	    showSuccess('Draft initialized successfully!')
 	    fetchEventDetails(eventId)
 	    fetchData()
 	  } catch (err: unknown) {
-	    alert(getErrorMessage(err, 'Failed to initialize draft'))
+	    showError(getErrorMessage(err, 'Failed to initialize draft'))
 	  }
 	}
 
 	const handleExportData = async (eventId: string) => {
 	  setExporting(true)
 	  try {
-	    const response = await axios.get(`${API_URL}/api/stats/${eventId}/export`)
+	    const response = await api.get(`/api/stats/${eventId}/export`)
 	    const dataStr = JSON.stringify(response.data, null, 2)
 	    const dataBlob = new Blob([dataStr], { type: 'application/json' })
 	    const url = URL.createObjectURL(dataBlob)
@@ -446,9 +462,9 @@ function AdminDashboard() {
 	    link.click()
 	    document.body.removeChild(link)
 	    URL.revokeObjectURL(url)
-	    alert('Data exported successfully!')
+	    showSuccess('Data exported successfully!')
 	  } catch (err: unknown) {
-	    alert(getErrorMessage(err, 'Failed to export data'))
+	    showError(getErrorMessage(err, 'Failed to export data'))
 	  } finally {
 	    setExporting(false)
 	  }

@@ -1,600 +1,329 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import axios from 'axios'
 import { useSocket } from '../contexts/socket-context'
 import { useAuth } from '../contexts/auth-context'
+import { useToast } from '../contexts/toast-context'
+import { useConfirm } from '../contexts/confirm-context'
 import { AppHeader } from '../components/app-header'
+import { DraftBoard } from '../components/draft/draft-board'
+import { PlayerPool } from '../components/draft/player-pool'
+import { RecentPicks } from '../components/draft/recent-picks'
+import { DraftState } from '../components/draft/types'
+import { api } from '../lib/api-client'
 import { getErrorMessage } from '../utils/get-error-message'
 
-interface Player {
-	id: string
-	name: string
-	team: string | null
-}
+/**
+ * How often to re-fetch state while the socket is down. Only ever runs as a fallback:
+ * while connected, updates arrive by push, so a room of viewers costs the server one
+ * query per pick rather than one query per viewer per interval.
+ */
+const DISCONNECTED_POLL_MS = 30000
 
-interface Team {
-	id: string
-	name: string
-	captains?: Array<{ id?: string; discordUsername: string; player?: Player }>
-	draftPicks: Array<{
-	  id: string
-	  player: Player
-	  pickNumber: number
-	  round: number
-	}>
-}
-
-interface DraftPick {
-	id: string
-	team: Team
-	player: Player
-	pickNumber: number
-	round: number
-	timestamp: string
-}
-
-interface DraftState {
-	draftOrder: {
-	  currentPick: number
-	  currentRound: number
-	  teamOrder: string[]
-	} | null
-	teams: Team[]
-	picks: DraftPick[]
-	availablePlayers: Player[]
-	currentTeam: Team | null
-	/** Column order on draft board (admin can change during draft). When set, use for display; else use draftOrder round-1. */
-	teamDraftOrder?: string[]
-}
-
-interface LiveDraftEvent {
-	id: string
-	players: Player[]
-	status: string
-}
-
-interface Captain {
-	id?: string
-	discordUsername: string
-	player?: Player
-}
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+/** Teams at or above this count get the full-width board layout. */
+const WIDE_LAYOUT_MIN_TEAMS = 6
 
 function LiveDraft() {
 	const { eventCode } = useParams<{ eventCode: string }>()
 	const { user } = useAuth()
-	const { socket, connectToEvent } = useSocket()
-	const [event, setEvent] = useState<LiveDraftEvent | null>(null)
+	const { socket, connected, connectToEvent } = useSocket()
+	const { showError } = useToast()
+	const confirm = useConfirm()
+
+	const [eventId, setEventId] = useState<string | null>(null)
 	const [draftState, setDraftState] = useState<DraftState | null>(null)
 	const [loading, setLoading] = useState(true)
 	const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null)
 	const [searchTerm, setSearchTerm] = useState('')
+	const [submitting, setSubmitting] = useState(false)
+	const hasConnectedBefore = useRef(false)
 
-	const fetchEvent = useCallback(async () => {
-	  try {
-	    const response = await axios.get(`${API_URL}/api/events/code/${eventCode}`)
-	    setEvent(response.data.event)
-	  } catch (error) {
-	    console.error('Failed to fetch event:', error)
-	  } finally {
-	    setLoading(false)
-	  }
+	// The event lookup exists only to turn the URL's event code into an id; everything
+	// the page renders comes from the draft state payload.
+	useEffect(() => {
+		if (!eventCode) return
+		let cancelled = false
+
+		api
+			.get(`/api/events/code/${eventCode}`)
+			.then((res) => {
+				if (!cancelled) setEventId(res.data.event.id)
+			})
+			.catch((error) => {
+				console.error('Failed to fetch event:', error)
+				if (!cancelled) setLoading(false)
+			})
+
+		return () => {
+			cancelled = true
+		}
 	}, [eventCode])
 
 	const fetchDraftState = useCallback(async () => {
-	  if (!event) return
-	  try {
-	    const response = await axios.get(`${API_URL}/api/draft/${event.id}/state`)
-	    setDraftState(response.data)
-	  } catch (error) {
-	    console.error('Failed to fetch draft state:', error)
-	  }
-	}, [event])
+		if (!eventId) return
+		try {
+			const response = await api.get(`/api/draft/${eventId}/state`)
+			setDraftState(response.data)
+		} catch (error) {
+			console.error('Failed to fetch draft state:', error)
+		} finally {
+			setLoading(false)
+		}
+	}, [eventId])
 
 	useEffect(() => {
-	  if (eventCode) {
-	    fetchEvent()
-	  }
-	}, [eventCode, fetchEvent])
+		if (eventId) fetchDraftState()
+	}, [eventId, fetchDraftState])
 
 	useEffect(() => {
-	  if (event && socket) {
-	    connectToEvent(event.id)
+		if (!eventId || !socket) return
 
-	    socket.on('draft-update', (data: DraftState) => {
-	      setDraftState(data)
-	    })
+		connectToEvent(eventId)
 
-	    socket.on('pick-made', (data: { pick: DraftPick; state: DraftState }) => {
-	      setDraftState(data.state)
-	    })
+		const handleUpdate = (state: DraftState) => setDraftState(state)
+		socket.on('draft-update', handleUpdate)
 
-	    socket.on('draft-paused', () => {
-	      if (event) fetchEvent()
-	    })
+		return () => {
+			socket.off('draft-update', handleUpdate)
+		}
+	}, [eventId, socket, connectToEvent])
 
-	    socket.on('draft-resumed', () => {
-	      if (event) fetchEvent()
-	    })
-
-	    return () => {
-	      socket.off('draft-update')
-	      socket.off('pick-made')
-	      socket.off('draft-paused')
-	      socket.off('draft-resumed')
-	    }
-	  }
-	}, [event, socket, connectToEvent, fetchEvent])
-
+	// Rejoin the room and resync after a reconnect, since updates published while the
+	// socket was down were never delivered. The first connect is skipped: the initial
+	// fetch above already covers it.
 	useEffect(() => {
-	  if (event) {
-	    fetchDraftState()
-	    const interval = setInterval(fetchDraftState, 2000)
-	    return () => clearInterval(interval)
-	  }
-	}, [event, fetchDraftState])
+		if (!eventId || !connected) return
 
-	const handleMakePick = async () => {
-	  if (!selectedPlayer || !event || !draftState) return
+		connectToEvent(eventId)
+		if (hasConnectedBefore.current) {
+			fetchDraftState()
+		}
+		hasConnectedBefore.current = true
+	}, [eventId, connected, connectToEvent, fetchDraftState])
 
-	  const isAdmin = user?.role === 'ADMIN'
-	  const currentTeam = draftState.currentTeam
-	  const discordUsername = (user?.discordUsername ?? '').toLowerCase()
-	  const isCaptainOfCurrentTeam = !!currentTeam?.captains?.some(
-	    (c: Captain) => (c.discordUsername || '').toLowerCase() === discordUsername
-	  )
+	// A backgrounded tab can miss updates; resync when the viewer comes back.
+	useEffect(() => {
+		const handleVisibility = () => {
+			if (document.visibilityState === 'visible') fetchDraftState()
+		}
+		document.addEventListener('visibilitychange', handleVisibility)
+		return () => document.removeEventListener('visibilitychange', handleVisibility)
+	}, [fetchDraftState])
 
-	  if (!isAdmin && !isCaptainOfCurrentTeam) {
-	    alert('Only the current team\'s captains and admins can make picks')
-	    return
-	  }
+	// Safety net, and only while the socket is actually down.
+	useEffect(() => {
+		if (connected || !eventId) return
+		const interval = setInterval(fetchDraftState, DISCONNECTED_POLL_MS)
+		return () => clearInterval(interval)
+	}, [connected, eventId, fetchDraftState])
 
-	  try {
-	    await axios.post(`${API_URL}/api/draft/${event.id}/pick`, { playerId: selectedPlayer })
-	    setSelectedPlayer(null)
-	    // State will update via socket or polling
-	  } catch (err: unknown) {
-	    alert(getErrorMessage(err, 'Failed to make pick'))
-	  }
-	}
-
-	const handlePause = async () => {
-	  if (!event) return
-	  try {
-	    await axios.post(`${API_URL}/api/draft/${event.id}/pause`)
-	    fetchEvent()
-	  } catch (err: unknown) {
-	    alert(getErrorMessage(err, 'Failed to pause draft'))
-	  }
-	}
-
-	const handleResume = async () => {
-	  if (!event) return
-	  try {
-	    await axios.post(`${API_URL}/api/draft/${event.id}/resume`)
-	    fetchEvent()
-	  } catch (err: unknown) {
-	    alert(getErrorMessage(err, 'Failed to resume draft'))
-	  }
-	}
-
-	const handleUndo = async () => {
-	  if (!event || user?.role !== 'ADMIN') return
-	  if (!confirm('Are you sure you want to undo the last pick?')) return
-	  try {
-	    await axios.post(`${API_URL}/api/draft/${event.id}/undo`)
-	    // State will update via socket or polling
-	  } catch (err: unknown) {
-	    alert(getErrorMessage(err, 'Failed to undo pick'))
-	  }
-	}
-
-	if (loading || !draftState || !event) {
-	  return (
-	    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-	      <div className="text-lg text-gray-600 dark:text-gray-400">Loading draft...</div>
-	    </div>
-	  )
-	}
-
-	const filteredPlayers = draftState.availablePlayers.filter((player) =>
-	  player.name.toLowerCase().includes(searchTerm.toLowerCase())
-	)
-
+	const isAdmin = user?.role === 'ADMIN'
 	const currentTeam = draftState?.currentTeam
 	const discordUsername = (user?.discordUsername ?? '').toLowerCase()
 	const isCaptainOfCurrentTeam = !!currentTeam?.captains?.some(
-	  (c: Captain) => (c.discordUsername || '').toLowerCase() === discordUsername
+		(c) => (c.discordUsername || '').toLowerCase() === discordUsername,
 	)
-	const canMakePick = user && (user.role === 'ADMIN' || isCaptainOfCurrentTeam)
-	const isAdmin = user?.role === 'ADMIN'
-	const canPauseResume = isAdmin && event && (event.status === 'DRAFTING' || event.status === 'PAUSED')
-	const numTeams = draftState.teams.length || 1
-	const draftBoardColumnOrder = ((): string[] => {
-	  const teamIds = draftState.teams.map((t) => t.id)
-	  if (draftState.teamDraftOrder?.length === numTeams
-	    && teamIds.every((id) => draftState.teamDraftOrder!.includes(id))
-	    && new Set(draftState.teamDraftOrder).size === numTeams) {
-	    return draftState.teamDraftOrder
-	  }
-	  if (draftState.draftOrder) {
-	    return draftState.draftOrder.teamOrder.slice(0, numTeams)
-	  }
-	  return teamIds
-	})()
-	const useWideLayout = numTeams >= 6
-	const handleSelectPlayer = (playerId: string) => () => {
-		if (canMakePick) setSelectedPlayer(playerId)
+	const isDrafting = draftState?.eventStatus === 'DRAFTING'
+	const canMakePick = !!user && isDrafting && (isAdmin || isCaptainOfCurrentTeam)
+	const canPauseResume =
+		isAdmin && (draftState?.eventStatus === 'DRAFTING' || draftState?.eventStatus === 'PAUSED')
+
+	const handleMakePick = async () => {
+		if (!selectedPlayer || !eventId) return
+
+		setSubmitting(true)
+		try {
+			await api.post(`/api/draft/${eventId}/pick`, { playerId: selectedPlayer })
+			setSelectedPlayer(null)
+			// The resulting state arrives over the socket.
+		} catch (err: unknown) {
+			showError(getErrorMessage(err, 'Failed to make pick'))
+		} finally {
+			setSubmitting(false)
+		}
 	}
 
+	const handlePause = async () => {
+		if (!eventId) return
+		try {
+			await api.post(`/api/draft/${eventId}/pause`)
+		} catch (err: unknown) {
+			showError(getErrorMessage(err, 'Failed to pause draft'))
+		}
+	}
+
+	const handleResume = async () => {
+		if (!eventId) return
+		try {
+			await api.post(`/api/draft/${eventId}/resume`)
+		} catch (err: unknown) {
+			showError(getErrorMessage(err, 'Failed to resume draft'))
+		}
+	}
+
+	const handleUndo = async () => {
+		if (!eventId || !isAdmin) return
+
+		const confirmed = await confirm({
+			title: 'Undo the last pick?',
+			message: 'The most recent pick is removed and the draft returns to that slot.',
+			confirmLabel: 'Undo pick',
+			destructive: true,
+		})
+		if (!confirmed) return
+
+		try {
+			await api.post(`/api/draft/${eventId}/undo`)
+		} catch (err: unknown) {
+			showError(getErrorMessage(err, 'Failed to undo pick'))
+		}
+	}
+
+	const columnOrder = useMemo(() => {
+		if (!draftState) return []
+		const teamIds = draftState.teams.map((t) => t.id)
+		const custom = draftState.teamDraftOrder
+		if (
+			custom &&
+			custom.length === teamIds.length &&
+			teamIds.every((id) => custom.includes(id)) &&
+			new Set(custom).size === custom.length
+		) {
+			return custom
+		}
+		if (draftState.draftOrder) {
+			return draftState.draftOrder.teamOrder.slice(0, teamIds.length)
+		}
+		return teamIds
+	}, [draftState])
+
+	if (loading || !draftState) {
+		return (
+			<div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+				<div className="text-lg text-gray-600 dark:text-gray-400">Loading draft...</div>
+			</div>
+		)
+	}
+
+	const numTeams = draftState.teams.length
+	const useWideLayout = numTeams >= WIDE_LAYOUT_MIN_TEAMS
+
+	const board = (
+		<DraftBoard
+			teams={draftState.teams}
+			picks={draftState.picks}
+			columnOrder={columnOrder}
+			draftOrder={draftState.draftOrder}
+			totalSlots={draftState.totalSlots}
+		/>
+	)
+	const pool = (
+		<PlayerPool
+			players={draftState.availablePlayers}
+			searchTerm={searchTerm}
+			onSearchChange={setSearchTerm}
+			selectedPlayerId={selectedPlayer}
+			onSelectPlayer={setSelectedPlayer}
+			canMakePick={canMakePick}
+			onMakePick={handleMakePick}
+			submitting={submitting}
+		/>
+	)
+	const recentPicks = <RecentPicks picks={draftState.picks} />
+
 	return (
-	  <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-	    <AppHeader
-	      backLink={`/event/${eventCode}`}
-	      title="Live Draft"
-	      rightSlot={
-	        canPauseResume || isAdmin ? (
-	          <div className="flex gap-2">
-	            {canPauseResume && (
-	              <>
-	                {event.status === 'DRAFTING' && (
-	                  <button
-	                    onClick={handlePause}
-	                    className="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700"
-	                  >
-	                    Pause Draft
-	                  </button>
-	                )}
-	                {event.status === 'PAUSED' && (
-	                  <button
-	                    onClick={handleResume}
-	                    className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-	                  >
-	                    Resume Draft
-	                  </button>
-	                )}
-	              </>
-	            )}
-	            {isAdmin && (
-	              <button
-	                onClick={handleUndo}
-	                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-	              >
-	                Undo Last Pick
-	              </button>
-	            )}
-	          </div>
-	        ) : undefined
-	      }
-	    />
+		<div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+			<AppHeader
+				backLink={`/event/${eventCode}`}
+				title="Live Draft"
+				rightSlot={
+					isAdmin ? (
+						<div className="flex gap-2">
+							{canPauseResume && draftState.eventStatus === 'DRAFTING' && (
+								<button
+									onClick={handlePause}
+									className="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700"
+								>
+									Pause Draft
+								</button>
+							)}
+							{canPauseResume && draftState.eventStatus === 'PAUSED' && (
+								<button
+									onClick={handleResume}
+									className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+								>
+									Resume Draft
+								</button>
+							)}
+							<button
+								onClick={handleUndo}
+								className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+							>
+								Undo Last Pick
+							</button>
+						</div>
+					) : undefined
+				}
+			/>
 
-	    <main
-	      className={`mx-auto py-6 sm:px-6 lg:px-8 ${
-	        numTeams >= 6 ? 'max-w-[min(1600px,96vw)]' : 'max-w-7xl'
-	      }`}
-	    >
-	      <div className="px-4 py-6 sm:px-0">
-	        <div className="mb-6 bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50 rounded-lg p-6">
-	          <div className="flex justify-between items-center">
-	            <div>
-	              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-	                Round {draftState.draftOrder?.currentRound || 1}
-	              </h2>
-	              <p className="text-gray-600 dark:text-gray-400">
-	                Pick #{draftState.draftOrder ? draftState.draftOrder.currentPick + 1 : 0} of{' '}
-	                {event.players.length}
-	              </p>
-	              {event.status === 'PAUSED' && (
-	                <div className="mt-2 px-3 py-1 bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-200 rounded text-sm font-medium">
-	                  ⏸ Draft Paused
-	                </div>
-	              )}
-	            </div>
-	            {draftState.currentTeam && (
-	              <div className="text-right">
-	                <p className="text-sm text-gray-600 dark:text-gray-400">Current Team:</p>
-	                <p className="text-xl font-semibold text-indigo-600 dark:text-indigo-400">
-	                  {draftState.currentTeam.name}
-	                </p>
-	              </div>
-	            )}
-	          </div>
-	        </div>
+			<main
+				className={`mx-auto py-6 sm:px-6 lg:px-8 ${
+					useWideLayout ? 'max-w-[min(1600px,96vw)]' : 'max-w-7xl'
+				}`}
+			>
+				<div className="px-4 py-6 sm:px-0">
+					<div className="mb-6 bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50 rounded-lg p-6">
+						<div className="flex justify-between items-center">
+							<div>
+								<h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+									Round {draftState.draftOrder?.currentRound || 1}
+								</h2>
+								<p className="text-gray-600 dark:text-gray-400">
+									Pick #{draftState.draftOrder ? draftState.draftOrder.currentPick + 1 : 0} of{' '}
+									{draftState.totalSlots}
+								</p>
+								{draftState.eventStatus === 'PAUSED' && (
+									<div className="mt-2 px-3 py-1 bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-200 rounded text-sm font-medium">
+										⏸ Draft Paused
+									</div>
+								)}
+								{!connected && (
+									<div className="mt-2 px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded text-sm font-medium">
+										Reconnecting… updates may lag
+									</div>
+								)}
+							</div>
+							{draftState.currentTeam && (
+								<div className="text-right">
+									<p className="text-sm text-gray-600 dark:text-gray-400">Current Team:</p>
+									<p className="text-xl font-semibold text-indigo-600 dark:text-indigo-400">
+										{draftState.currentTeam.name}
+									</p>
+								</div>
+							)}
+						</div>
+					</div>
 
-	        {useWideLayout ? (
-	          /* Many teams: Draft Board full width on top, then Players | Recent Picks in 2 cols */
-	          <div className="space-y-6">
-	            <div className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50 rounded-lg p-4 overflow-x-auto">
-	              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Draft Board</h3>
-	              <table className="w-full border-collapse min-w-[400px]">
-	                <thead>
-	                  <tr>
-	                    <th className="text-left p-2 border-b border-gray-200 dark:border-gray-700 font-semibold text-gray-700 dark:text-gray-300 sticky left-0 bg-white dark:bg-gray-800 z-10 min-w-[4rem]">
-	                      Round
-	                    </th>
-	                    {draftBoardColumnOrder.map((teamId) => {
-	                      const team = draftState.teams.find((t) => t.id === teamId)
-	                      const isCurrentTeam =
-	                        draftState.draftOrder &&
-	                        draftState.currentTeam?.id === teamId &&
-	                        (draftState.draftOrder.currentPick ?? 0) < (event?.players?.length ?? 0)
-	                      const compact = numTeams >= 5
-	                      return team ? (
-	                        <th
-	                          key={team.id}
-	                          title={compact ? team.name : undefined}
-	                          className={`text-left p-2 border-b border-gray-200 dark:border-gray-700 font-semibold ${
-	                            compact ? 'min-w-0 max-w-[5.5rem] truncate' : 'min-w-[7rem]'
-	                          } ${
-	                            isCurrentTeam
-	                              ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200 border-amber-300 dark:border-amber-700'
-	                              : 'text-gray-700 dark:text-gray-300'
-	                          }`}
-	                        >
-	                          {team.name}
-	                        </th>
-	                      ) : null
-	                    })}
-	                  </tr>
-	                </thead>
-	                <tbody>
-	                  {Array.from(
-	                    {
-	                      length: Math.ceil(
-	                        (event?.players?.length ?? 0) / (draftState.teams.length || 1)
-	                      ) || 1,
-	                    },
-	                    (_, i) => i + 1
-	                  ).map((round) => (
-	                    <tr key={round} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/30">
-	                      <td className="p-2 border-b border-gray-100 dark:border-gray-700 font-medium text-gray-600 dark:text-gray-400 sticky left-0 bg-white dark:bg-gray-800 z-10">
-	                        {round}
-	                      </td>
-	                      {draftBoardColumnOrder.map((teamId) => {
-	                        const team = draftState.teams.find((t) => t.id === teamId)
-	                        if (!team) return null
-	                        const pick = team.draftPicks.find((p) => p.round === round)
-	                        const isCurrentCell =
-	                          draftState.draftOrder &&
-	                          (draftState.draftOrder.currentPick ?? 0) < (event?.players?.length ?? 0) &&
-	                          draftState.draftOrder.currentRound === round &&
-	                          draftState.draftOrder.teamOrder[draftState.draftOrder.currentPick] === teamId
-	                        return (
-	                          <td
-	                            key={team.id}
-	                            className={`p-2 border-b border-gray-100 dark:border-gray-700 align-top ${
-	                              isCurrentCell
-	                                ? 'bg-amber-200/80 dark:bg-amber-900/50 ring-2 ring-amber-500 dark:ring-amber-600 ring-inset'
-	                                : 'bg-white dark:bg-gray-800'
-	                            }`}
-	                          >
-	                            {pick ? (
-	                              <span className="text-gray-900 dark:text-gray-100">{pick.player.name}</span>
-	                            ) : isCurrentCell ? (
-	                              <span className="text-amber-700 dark:text-amber-300 text-sm italic">On the clock</span>
-	                            ) : (
-	                              <span className="text-gray-300 dark:text-gray-600">-</span>
-	                            )}
-	                          </td>
-	                        )
-	                      })}
-	                    </tr>
-	                  ))}
-	                </tbody>
-	              </table>
-	            </div>
-	            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-	              <div className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50 rounded-lg p-6">
-	                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Available Players</h3>
-	                <input
-	                  type="text"
-	                  placeholder="Search players..."
-	                  value={searchTerm}
-	                  onChange={(e) => setSearchTerm(e.target.value)}
-	                  className="w-full mb-4 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
-	                />
-	                <div className="max-h-96 overflow-y-auto flex flex-wrap gap-2 content-start">
-	                  {filteredPlayers.map((player) => {
-	                    const title = player.team ? `${player.name} (${player.team})` : player.name
-	                    return (
-	                      <button
-	                        key={player.id}
-	                        type="button"
-	                        title={title}
-	                        onClick={handleSelectPlayer(player.id)}
-	                        className={`inline-flex items-center px-2 py-1 rounded-md border text-sm transition-colors ${
-	                          selectedPlayer === player.id
-	                            ? 'bg-indigo-100 dark:bg-indigo-900/40 border-indigo-500 dark:border-indigo-400'
-	                            : 'bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600'
-	                        } ${canMakePick ? 'cursor-pointer' : 'cursor-default opacity-75'}`}
-	                      >
-	                        <span className="font-medium text-gray-900 dark:text-gray-100 truncate max-w-[11rem]">{player.name}</span>
-	                      </button>
-	                    )
-	                  })}
-	                </div>
-	                {canMakePick && selectedPlayer && (
-	                  <div className="mt-4">
-	                    <button
-	                      onClick={handleMakePick}
-	                      className="w-full px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-	                    >
-	                      Make Pick
-	                    </button>
-	                  </div>
-	                )}
-	              </div>
-	              <div className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50 rounded-lg p-6">
-	                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Recent Picks</h3>
-	                <div className="space-y-2 max-h-64 overflow-y-auto">
-	                  {draftState.picks.slice(-10).reverse().map((pick) => (
-	                    <div key={pick.id} className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-700/50 rounded">
-	                      <div>
-	                        <span className="font-medium text-gray-900 dark:text-gray-100">#{pick.pickNumber}</span> -{' '}
-	                        <span className="font-semibold text-gray-900 dark:text-gray-100">{pick.player.name}</span> →{' '}
-	                        <span className="text-indigo-600 dark:text-indigo-400">{pick.team.name}</span>
-	                      </div>
-	                      <div className="text-sm text-gray-500 dark:text-gray-400">
-	                        Round {pick.round}
-	                      </div>
-	                    </div>
-	                  ))}
-	                </div>
-	              </div>
-	            </div>
-	          </div>
-	        ) : (
-	          <div className="grid lg:grid-cols-3 gap-6">
-	            {/* Available Players */}
-	            <div className="lg:col-span-1">
-	              <div className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50 rounded-lg p-6">
-	                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Available Players</h3>
-	                <input
-	                  type="text"
-	                  placeholder="Search players..."
-	                  value={searchTerm}
-	                  onChange={(e) => setSearchTerm(e.target.value)}
-	                  className="w-full mb-4 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
-	                />
-	                <div className="max-h-96 overflow-y-auto flex flex-wrap gap-2 content-start">
-	                  {filteredPlayers.map((player) => {
-	                    const title = player.team ? `${player.name} (${player.team})` : player.name
-	                    return (
-	                      <button
-	                        key={player.id}
-	                        type="button"
-	                        title={title}
-	                        onClick={handleSelectPlayer(player.id)}
-	                        className={`inline-flex items-center px-2 py-1 rounded-md border text-sm transition-colors ${
-	                          selectedPlayer === player.id
-	                            ? 'bg-indigo-100 dark:bg-indigo-900/40 border-indigo-500 dark:border-indigo-400'
-	                            : 'bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600'
-	                        } ${canMakePick ? 'cursor-pointer' : 'cursor-default opacity-75'}`}
-	                      >
-	                        <span className="font-medium text-gray-900 dark:text-gray-100 truncate max-w-[11rem]">{player.name}</span>
-	                      </button>
-	                    )
-	                  })}
-	                </div>
-	                {canMakePick && selectedPlayer && (
-	                  <div className="mt-4">
-	                    <button
-	                      onClick={handleMakePick}
-	                      className="w-full px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-	                    >
-	                      Make Pick
-	                    </button>
-	                  </div>
-	                )}
-	              </div>
-	            </div>
-
-	            {/* Teams & Recent Picks */}
-	            <div className="lg:col-span-2">
-	              <div className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50 rounded-lg p-4 mb-6 overflow-x-auto">
-	                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Draft Board</h3>
-	                <table className="w-full border-collapse min-w-[400px]">
-	                  <thead>
-	                    <tr>
-	                      <th className="text-left p-2 border-b border-gray-200 dark:border-gray-700 font-semibold text-gray-700 dark:text-gray-300 sticky left-0 bg-white dark:bg-gray-800 z-10 min-w-[4rem]">
-	                        Round
-	                      </th>
-	                      {draftBoardColumnOrder.map((teamId) => {
-	                        const team = draftState.teams.find((t) => t.id === teamId)
-	                        const isCurrentTeam =
-	                          draftState.draftOrder &&
-	                          draftState.currentTeam?.id === teamId &&
-	                          (draftState.draftOrder.currentPick ?? 0) < (event?.players?.length ?? 0)
-	                        const compact = numTeams >= 5
-	                        return team ? (
-	                          <th
-	                            key={team.id}
-	                            title={compact ? team.name : undefined}
-	                            className={`text-left p-2 border-b border-gray-200 dark:border-gray-700 font-semibold ${
-	                              compact ? 'min-w-0 max-w-[5.5rem] truncate' : 'min-w-[7rem]'
-	                            } ${
-	                              isCurrentTeam
-	                                ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200 border-amber-300 dark:border-amber-700'
-	                                : 'text-gray-700 dark:text-gray-300'
-	                            }`}
-	                          >
-	                            {team.name}
-	                          </th>
-	                        ) : null
-	                      })}
-	                    </tr>
-	                  </thead>
-	                  <tbody>
-	                    {Array.from(
-	                      {
-	                        length: Math.ceil(
-	                          (event?.players?.length ?? 0) / (draftState.teams.length || 1)
-	                        ) || 1,
-	                      },
-	                      (_, i) => i + 1
-	                    ).map((round) => (
-	                      <tr key={round} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/30">
-	                        <td className="p-2 border-b border-gray-100 dark:border-gray-700 font-medium text-gray-600 dark:text-gray-400 sticky left-0 bg-white dark:bg-gray-800 z-10">
-	                          {round}
-	                        </td>
-	                        {draftBoardColumnOrder.map((teamId) => {
-	                          const team = draftState.teams.find((t) => t.id === teamId)
-	                          if (!team) return null
-	                          const pick = team.draftPicks.find((p) => p.round === round)
-	                          const isCurrentCell =
-	                            draftState.draftOrder &&
-	                            (draftState.draftOrder.currentPick ?? 0) < (event?.players?.length ?? 0) &&
-	                            draftState.draftOrder.currentRound === round &&
-	                            draftState.draftOrder.teamOrder[draftState.draftOrder.currentPick] === teamId
-	                          return (
-	                            <td
-	                              key={team.id}
-	                              className={`p-2 border-b border-gray-100 dark:border-gray-700 align-top ${
-	                                isCurrentCell
-	                                  ? 'bg-amber-200/80 dark:bg-amber-900/50 ring-2 ring-amber-500 dark:ring-amber-600 ring-inset'
-	                                  : 'bg-white dark:bg-gray-800'
-	                              }`}
-	                            >
-	                              {pick ? (
-	                                <span className="text-gray-900 dark:text-gray-100">{pick.player.name}</span>
-	                              ) : isCurrentCell ? (
-	                                <span className="text-amber-700 dark:text-amber-300 text-sm italic">On the clock</span>
-	                              ) : (
-	                                <span className="text-gray-300 dark:text-gray-600">-</span>
-	                              )}
-	                            </td>
-	                          )
-	                        })}
-	                      </tr>
-	                    ))}
-	                  </tbody>
-	                </table>
-	              </div>
-
-	              <div className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50 rounded-lg p-6">
-	                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Recent Picks</h3>
-	                <div className="space-y-2 max-h-64 overflow-y-auto">
-	                  {draftState.picks.slice(-10).reverse().map((pick) => (
-	                    <div key={pick.id} className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-700/50 rounded">
-	                      <div>
-	                        <span className="font-medium text-gray-900 dark:text-gray-100">#{pick.pickNumber}</span> -{' '}
-	                        <span className="font-semibold text-gray-900 dark:text-gray-100">{pick.player.name}</span> →{' '}
-	                        <span className="text-indigo-600 dark:text-indigo-400">{pick.team.name}</span>
-	                      </div>
-	                      <div className="text-sm text-gray-500 dark:text-gray-400">
-	                        Round {pick.round}
-	                      </div>
-	                    </div>
-	                  ))}
-	                </div>
-	              </div>
-	            </div>
-	          </div>
-	        )}
-	      </div>
-	    </main>
-	  </div>
+					{useWideLayout ? (
+						/* Many teams: board full width on top, then Players | Recent Picks */
+						<div className="space-y-6">
+							{board}
+							<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+								{pool}
+								{recentPicks}
+							</div>
+						</div>
+					) : (
+						<div className="grid lg:grid-cols-3 gap-6">
+							<div className="lg:col-span-1">{pool}</div>
+							<div className="lg:col-span-2 space-y-6">
+								{board}
+								{recentPicks}
+							</div>
+						</div>
+					)}
+				</div>
+			</main>
+		</div>
 	)
 }
 

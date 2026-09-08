@@ -60,10 +60,11 @@ cd bingo-draft
 ### 2. Install dependencies
 
 ```bash
-npm run install:all
+npm install
 ```
 
-This will install dependencies for both the root workspace, frontend, and backend.
+One install at the repo root covers all three workspaces (`shared`, `frontend`, `backend`)
+and links `@bingo-draft/shared` into both apps. Do not install inside a package directory.
 
 ### 3. Database Setup
 
@@ -199,6 +200,11 @@ After the draft completes, open the Stats page for leaderboard rankings and pred
 - `GET /api/auth/discord/url` - Get Discord OAuth URL (optionally `?eventCode=X` to return to event after sign-in)
 - `GET /api/auth/discord/callback` - Discord OAuth callback (handles token exchange, redirects to frontend)
 - `GET /api/auth/me` - Get current user (requires `Authorization: Bearer <token>`)
+- `POST /api/auth/refresh` - Exchange a valid token for a fresh one carrying the current role
+
+Tokens last 24 hours. The frontend renews on load, every 15 minutes, and once on any 401
+before retrying the request. Roles are always read from the database, so promoting or
+demoting a user takes effect on their next request rather than when their token expires.
 
 ### Events
 - `GET /api/events` - List all events
@@ -207,21 +213,26 @@ After the draft completes, open the Stats page for leaderboard rankings and pred
 - `PUT /api/events/:id` - Update event (admin)
 - `POST /api/events/:id/players/import` - Import players from JSON array (admin)
 - `POST /api/events/:id/players/bulk-import` - Import players from pasteable text, one per line (admin)
+- `POST /api/events/:id/players/bulk-remove` - Remove players by name, one per line (admin)
 - `PUT /api/events/:id/team-draft-order` - Set which team picks 1st, 2nd, etc. (admin; before initialize)
 - `POST /api/events/:id/teams` - Add team (admin)
 
 ### Draft
 - `POST /api/draft/:eventId/submit-order` - Submit draft order prediction
 - `GET /api/draft/:eventId/my-submission` - Get user's submission
-- `POST /api/draft/:eventId/initialize` - Initialize draft (admin)
-- `POST /api/draft/:eventId/pick` - Make a pick (admin or captain of the current team)
+- `POST /api/draft/:eventId/initialize` - Initialize draft (admin; refused once picks exist)
+- `POST /api/draft/:eventId/pick` - Make a pick (admin or captain of the current team; rejected while paused)
 - `GET /api/draft/:eventId/state` - Get current draft state
 - `POST /api/draft/:eventId/undo` - Undo last pick (admin only)
+- `POST /api/draft/:eventId/pause` - Pause the draft, blocking further picks (admin only)
+- `POST /api/draft/:eventId/resume` - Resume a paused draft (admin only)
 
 ### Stats
 - `GET /api/stats/:eventId/rankings` - Get all rankings
+- `GET /api/stats/:eventId/aggregate` - Per-player and per-team prediction accuracy across all users
 - `GET /api/stats/:eventId/my-stats` - Get user's stats
-- `GET /api/stats/:eventId/export` - Export event data (admin/captain)
+- `GET /api/stats/:eventId/user/:userId` - Get a specific user's stats (public, for shared links)
+- `GET /api/stats/:eventId/export` - Export event data (admin only)
 
 ### Users
 - `GET /api/users` - List users (admin only)
@@ -229,32 +240,40 @@ After the draft completes, open the Stats page for leaderboard rankings and pred
 
 ## WebSocket Events
 
+Authentication is **optional** — signed-out viewers connect too, since event rooms are
+read-only broadcast channels carrying the same data as the public state endpoint.
+
 ### Client → Server
 - `join-event` - Join an event room
 - `leave-event` - Leave an event room
 
 ### Server → Client
-- `pick-made` - Emitted when a pick is made
-- `draft-update` - General draft state updates
+- `draft-update` - The full draft state, pushed after every pick, undo, pause, resume,
+  initialize, and team-order change. Same payload as `GET /api/draft/:eventId/state`.
 
 ## Project Structure
 
 ```
 bingo-draft/
+├── shared/               # @bingo-draft/shared — snake-order math + scoring rules
+│   └── src/              # Used by BOTH apps; never reimplement locally
 ├── backend/
 │   ├── src/
 │   │   ├── routes/       # API routes
+│   │   ├── lib/          # draft-state.ts (state builder/broadcaster), user-stats.ts
 │   │   ├── middleware/   # Auth middleware
 │   │   ├── socket.ts     # Socket.io setup
 │   │   └── index.ts      # Express server
 │   ├── prisma/
 │   │   └── schema.prisma # Database schema
+│   ├── scripts/
 │   └── package.json
 ├── frontend/
 │   ├── src/
 │   │   ├── pages/        # React pages
-│   │   ├── components/  # Reusable components
-│   │   ├── contexts/     # React contexts (Auth, Socket)
+│   │   ├── components/   # Reusable components (incl. components/draft/)
+│   │   ├── contexts/     # React contexts (Auth, Socket, Theme, Toast, Confirm)
+│   │   ├── lib/          # api-client.ts — the shared axios instance
 │   │   └── App.tsx
 │   └── package.json
 └── package.json          # Root workspace config
@@ -263,8 +282,13 @@ bingo-draft/
 ## Development Notes
 
 - Backend: Prisma. After schema changes: `npm run db:generate` and `npm run db:migrate`.
-- Socket.io for real-time updates; frontend connects when authenticated. JWTs in localStorage.
+- Socket.io for real-time updates; every viewer connects, signed in or not. JWTs in localStorage.
 - Draft: snake order. Teams pick 1→N, then N→1, repeat.
+- **Shared math:** the snake-order and scoring helpers live in `shared/`. Run
+  `npm run build:shared` after changing them, or the apps keep using the previous build.
+- **Adding a draft mutation?** Call `broadcastDraftState()` from
+  `backend/src/lib/draft-state.ts` so live viewers see it. There is no polling to fall
+  back on while the socket is up.
 
 ## Troubleshooting
 

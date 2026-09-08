@@ -1,8 +1,11 @@
+// Must come first: routes/auth.ts and middleware/auth.ts read process.env at module
+// scope, and imports are evaluated before any statement in this file's body.
+import 'dotenv/config'
+
 import express from 'express'
 import cors from 'cors'
 import { createServer } from 'http'
 import { Server } from 'socket.io'
-import dotenv from 'dotenv'
 import authRoutes from './routes/auth'
 import eventRoutes from './routes/events'
 import userRoutes from './routes/users'
@@ -10,8 +13,6 @@ import draftRoutes from './routes/draft'
 import statsRoutes from './routes/stats'
 import { setupSocketIO } from './socket'
 import { setIO } from './socketManager'
-
-dotenv.config()
 
 const app = express()
 const httpServer = createServer(app)

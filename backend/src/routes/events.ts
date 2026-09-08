@@ -1,7 +1,9 @@
 import express from 'express'
 import { z } from 'zod'
+import { buildSnakeOrder } from '@bingo-draft/shared'
 import prisma from '../db'
 import { authenticate, requireRole, AuthRequest } from '../middleware/auth'
+import { broadcastDraftState } from '../lib/draft-state'
 
 const router = express.Router()
 
@@ -269,21 +271,11 @@ router.put('/:id/team-draft-order', authenticate, requireRole('ADMIN'), async (r
 	  if (event.draftOrder) {
 	    const pickCount = await prisma.draftPick.count({ where: { eventId: id } })
 	    if (pickCount === 0) {
-	      const baseOrder = teamOrder
-	      const snakeOrder: string[] = []
-	      snakeOrder.push(...baseOrder)
-	      const maxRounds = Math.ceil(200 / baseOrder.length)
-	      for (let round = 2; round <= maxRounds; round++) {
-	        if (round % 2 === 0) {
-	          snakeOrder.push(...[...baseOrder].reverse())
-	        } else {
-	          snakeOrder.push(...baseOrder)
-	        }
-	      }
+	      const playerCount = await prisma.player.count({ where: { eventId: id } })
 	      await prisma.draftOrder.update({
 	        where: { eventId: id },
 	        data: {
-	          teamOrder: snakeOrder,
+	          teamOrder: buildSnakeOrder(teamOrder, playerCount),
 	          currentPick: 0,
 	          currentRound: 1,
 	          isReversed: false,
@@ -291,6 +283,9 @@ router.put('/:id/team-draft-order', authenticate, requireRole('ADMIN'), async (r
 	      })
 	    }
 	  }
+
+	  // Column order on the live board changed; push it to anyone watching.
+	  await broadcastDraftState(id)
 
 	  res.json({ success: true, teamOrder })
 	} catch (error) {

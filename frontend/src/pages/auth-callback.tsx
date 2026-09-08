@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { setStoredToken } from '../lib/api-client'
 
 function AuthCallback() {
 	const [searchParams] = useSearchParams()
@@ -16,7 +17,7 @@ function AuthCallback() {
 		}
 
 		if (token) {
-			localStorage.setItem('token', token)
+			setStoredToken(token)
 			const eventCode = searchParams.get('eventCode')
 			// Return to event page if user signed in from an event
 			window.location.href = eventCode ? `/event/${eventCode}` : '/'

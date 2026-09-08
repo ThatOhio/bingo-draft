@@ -13,6 +13,17 @@ const DISCORD_REDIRECT_URI =
 	'http://localhost:3001/api/auth/discord/callback'
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173'
 
+/**
+ * Access token lifetime. Short enough that a leaked token expires in a day; the client
+ * renews on load and on a timer, so users are not signed out mid-draft.
+ */
+const TOKEN_TTL = '24h'
+
+/** Issues an access token carrying the user's current role. */
+function signToken(userId: string, role: string): string {
+	return jwt.sign({ userId, role }, JWT_SECRET, { expiresIn: TOKEN_TTL })
+}
+
 // Discord OAuth callback
 router.get('/discord/callback', async (req, res) => {
 	try {
@@ -53,11 +64,7 @@ router.get('/discord/callback', async (req, res) => {
 				data: { discordUsername },
 			})
 		}
-		const token = jwt.sign(
-			{ userId: user.id, role: user.role },
-			JWT_SECRET,
-			{ expiresIn: '7d' },
-		)
+		const token = signToken(user.id, user.role)
 		let eventCode: string | undefined
 		if (state && typeof state === 'string') {
 			try {
@@ -95,6 +102,33 @@ router.get('/discord/url', (req, res) => {
 	})
 	const discordAuthUrl = `https://discord.com/api/oauth2/authorize?${params.toString()}`
 	res.json({ url: discordAuthUrl })
+})
+
+/**
+ * Exchanges a still-valid token for a fresh one carrying the user's current role.
+ *
+ * Roles are authoritative in the database (see requireRole), so this exists to keep the
+ * token's lifetime rolling and to refresh what the client displays after a role change.
+ */
+router.post('/refresh', authenticate, async (req: AuthRequest, res) => {
+	try {
+		const user = await prisma.user.findUnique({
+			where: { id: req.userId },
+			select: {
+				id: true,
+				discordId: true,
+				discordUsername: true,
+				role: true,
+			},
+		})
+		if (!user) {
+			return res.status(401).json({ error: 'User no longer exists' })
+		}
+		res.json({ token: signToken(user.id, user.role), user })
+	} catch (err) {
+		console.error('/refresh error:', err)
+		res.status(500).json({ error: 'Failed to refresh token' })
+	}
 })
 
 router.get('/me', authenticate, async (req: AuthRequest, res) => {

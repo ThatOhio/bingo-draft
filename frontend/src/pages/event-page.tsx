@@ -1,8 +1,8 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import axios from 'axios'
 import { useAuth } from '../contexts/auth-context'
 import { AppHeader } from '../components/app-header'
+import { api } from '../lib/api-client'
 
 interface Event {
 	id: string
@@ -19,7 +19,6 @@ interface Event {
 	}
 }
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
 
 function EventPage() {
 	const { eventCode } = useParams<{ eventCode: string }>()
@@ -31,7 +30,7 @@ function EventPage() {
 	const fetchEvent = useCallback(async () => {
 		if (!eventCode) return
 		try {
-			const response = await axios.get(`${API_URL}/api/events/code/${eventCode}`)
+			const response = await api.get(`/api/events/code/${eventCode}`)
 			setEvent(response.data.event)
 		} catch (error) {
 			console.error('Failed to fetch event:', error)
@@ -40,25 +39,32 @@ function EventPage() {
 		}
 	}, [eventCode])
 
-	const checkSubmission = useCallback(async () => {
-		if (!user || !eventCode) return
-		try {
-			const eventResponse = await axios.get(`${API_URL}/api/events/code/${eventCode}`)
-			const eventId = eventResponse.data.event.id
-			const response = await axios.get(`${API_URL}/api/draft/${eventId}/my-submission`)
-			setHasSubmission(!!response.data.submission)
-		} catch (error) {
-			// No submission yet
-			setHasSubmission(false)
-		}
-	}, [user, eventCode])
-
 	useEffect(() => {
-		if (eventCode) {
-			fetchEvent()
-			if (user) checkSubmission()
+		if (eventCode) fetchEvent()
+	}, [eventCode, fetchEvent])
+
+	// Runs off the already-loaded event rather than re-fetching it for its id.
+	useEffect(() => {
+		if (!user || !event) {
+			setHasSubmission(false)
+			return
 		}
-	}, [eventCode, user, fetchEvent, checkSubmission])
+		let cancelled = false
+
+		api
+			.get(`/api/draft/${event.id}/my-submission`)
+			.then((response) => {
+				if (!cancelled) setHasSubmission(!!response.data.submission)
+			})
+			.catch(() => {
+				// No submission yet.
+				if (!cancelled) setHasSubmission(false)
+			})
+
+		return () => {
+			cancelled = true
+		}
+	}, [user, event])
 
 	if (loading) {
 		return (

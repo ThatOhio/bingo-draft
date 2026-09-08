@@ -112,6 +112,11 @@ model DraftPick {
   pickNumber  Int      // Overall pick number (1, 2, 3, ...)
   timestamp   DateTime @default(now())
 
+  // A player can only be drafted once per event, and a pick number can only be claimed
+  // once per event. These are what actually make the pick race unrepresentable; the
+  // transaction in the pick handler is only the happy path.
+  @@unique([eventId, playerId])
+  @@unique([eventId, pickNumber])
   @@index([eventId])
   @@index([teamId])
 }

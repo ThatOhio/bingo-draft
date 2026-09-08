@@ -1,7 +1,6 @@
 import { useEffect, useState, useMemo, useCallback, memo, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useParams } from 'react-router-dom'
-import axios from 'axios'
 import {
 	DndContext,
 	DragEndEvent,
@@ -15,6 +14,12 @@ import {
 } from '@dnd-kit/core'
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import {
+	slotToRoundAndTeamIndex,
+	roundAndTeamIndexToSlot,
+	isValidSlot,
+} from '@bingo-draft/shared'
+import { api } from '../lib/api-client'
 import { useAuth } from '../contexts/auth-context'
 import { AppHeader } from '../components/app-header'
 import { getErrorMessage } from '../utils/get-error-message'
@@ -79,33 +84,6 @@ interface DroppablePoolProps {
 	disabled?: boolean
 }
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
-
-// --- Snake order helpers (must match backend) ---
-
-/**
- * Converts a 0-based slot index to round (1-based) and team index in snake order.
- */
-function slotToRoundAndTeamIndex(
-	slotIndex: number,
-	numTeams: number
-): { round: number; teamIndex: number } {
-	const round = Math.floor(slotIndex / numTeams) + 1
-	const posInRound = slotIndex % numTeams
-	const teamIndex = round % 2 === 1 ? posInRound : numTeams - 1 - posInRound
-	return { round, teamIndex }
-}
-
-/**
- * Converts round (1-based) and team index to 0-based slot index in snake order.
- */
-function roundAndTeamIndexToSlot(round: number, teamIndex: number, numTeams: number): number {
-	return (round - 1) * numTeams + (round % 2 === 1 ? teamIndex : numTeams - 1 - teamIndex)
-}
-
-function isValidSlot(round: number, teamIndex: number, numTeams: number, totalSlots: number): boolean {
-	return roundAndTeamIndexToSlot(round, teamIndex, numTeams) < totalSlots
-}
 
 /**
  * Converts grid (round-teamId -> playerId) to placements for API. Position is 1-based pick number.
@@ -539,7 +517,7 @@ function DraftSubmission() {
 
 	const fetchEventData = useCallback(async () => {
 	  try {
-	    const eventResponse = await axios.get(`${API_URL}/api/events/code/${eventCode}`)
+	    const eventResponse = await api.get(`/api/events/code/${eventCode}`)
 	    const ev = eventResponse.data.event
 	    setEvent(ev)
 
@@ -549,7 +527,7 @@ function DraftSubmission() {
 	    const defaultOrder = teams.slice().sort((a: Team, b: Team) => a.name.localeCompare(b.name)).map((t: Team) => t.id)
 
 	    try {
-	      const subRes = await axios.get(`${API_URL}/api/draft/${ev.id}/my-submission`)
+	      const subRes = await api.get(`/api/draft/${ev.id}/my-submission`)
 	      const sub = subRes.data.submission
 	      const hasValidTeamOrder = !!(sub?.teamOrder?.length === teamIds.length && teamIds.every((id: string) => sub!.teamOrder!.includes(id)))
 	      if (sub && sub.items?.length) {
@@ -586,9 +564,11 @@ function DraftSubmission() {
 
 	const teamIds = useMemo(() => teamOrder.length > 0 ? teamOrder : (event?.teams || []).map((t) => t.id), [teamOrder, event?.teams])
 	const numTeams = teamIds.length || 1
-	const totalSlots = (event?.players || []).length
+	// Memoised so the empty-array fallback does not produce a new identity each render,
+	// which would invalidate every downstream useMemo.
+	const players = useMemo(() => event?.players ?? [], [event?.players])
+	const totalSlots = players.length
 	const maxRound = Math.ceil(totalSlots / numTeams) || 1
-	const players = event?.players || []
 
 	const placedIds = useMemo(() => Object.values(grid), [grid])
 	const unplacedPlayers = useMemo(
@@ -699,7 +679,7 @@ function DraftSubmission() {
 	  setError('')
 
 	  try {
-	    const res = await axios.post(`${API_URL}/api/draft/${event.id}/submit-order`, {
+	    const res = await api.post(`/api/draft/${event.id}/submit-order`, {
 	      placements,
 	      teamOrder: teamIds,
 	    })

@@ -1,25 +1,16 @@
 import express from 'express'
+import {
+	POINTS_TEAM_ORDER,
+	POINTS_CORRECT_TEAM,
+	POINTS_CORRECT_ROUND,
+	playerSlotPoints,
+	slotToRoundAndTeamIndex,
+} from '@bingo-draft/shared'
 import prisma from '../db'
 import { authenticate, AuthRequest, requireRole } from '../middleware/auth'
+import { computeUserStats } from '../lib/user-stats'
 
 const router = express.Router()
-
-// Snake order: slotIndex (0-based) -> { round, teamIndex }. Must match frontend DraftSubmission.
-function slotToRoundAndTeamIndex(slotIndex: number, numTeams: number): { round: number; teamIndex: number } {
-	const round = Math.floor(slotIndex / numTeams) + 1
-	const posInRound = slotIndex % numTeams
-	const teamIndex = round % 2 === 1 ? posInRound : numTeams - 1 - posInRound
-	return { round, teamIndex }
-}
-
-// Points: exact 10; ±1: 5; ±2: 3; ±3: 1; else 0.
-function playerSlotPoints(difference: number): number {
-	if (difference === 0) return 10
-	if (difference === 1) return 5
-	if (difference === 2) return 3
-	if (difference === 3) return 1
-	return 0
-}
 
 // Get rankings for an event
 router.get('/:eventId/rankings', async (req, res) => {
@@ -64,10 +55,6 @@ router.get('/:eventId/rankings', async (req, res) => {
 
 	  const numTeams = event.teams?.length ?? 0
 	  const actualTeamOrder = event.draftOrder?.teamOrder?.slice(0, numTeams) ?? []
-
-	  const POINTS_TEAM_ORDER = 5
-	  const POINTS_CORRECT_TEAM = 3
-	  const POINTS_CORRECT_ROUND = 2
 
 	  const rankings = submissions.map(submission => {
 	    const userOrder = submission.items.map(item => ({
@@ -374,14 +361,7 @@ router.get('/:eventId/user/:userId', async (req, res) => {
 
 	  const event = await prisma.event.findUnique({
 	    where: { id: eventId },
-	    include: {
-	      teams: true,
-	      draftOrder: true,
-	      draftPicks: {
-	        include: { player: true, team: true },
-	        orderBy: { pickNumber: 'asc' },
-	      },
-	    },
+	    select: { status: true },
 	  })
 
 	  if (!event) {
@@ -391,164 +371,15 @@ router.get('/:eventId/user/:userId', async (req, res) => {
 	    return res.status(400).json({ error: 'Stats are not available until the draft is completed' })
 	  }
 
-	  const submission = await prisma.draftOrderSubmission.findUnique({
-	    where: {
-	      userId_eventId: { userId, eventId },
-	    },
-	    include: {
-	      user: { select: { discordUsername: true } },
-	      items: {
-	        include: { player: true },
-	        orderBy: { position: 'asc' },
-	      },
-	    },
-	  })
+	  const result = await computeUserStats(eventId, userId)
 
-	  if (!submission) {
-	    return res.status(404).json({ error: 'No submission found' })
+	  if (!result.ok) {
+	    return result.reason === 'event-not-found'
+	      ? res.status(404).json({ error: 'Event not found' })
+	      : res.status(404).json({ error: 'No submission found' })
 	  }
 
-	  const actualOrder = event.draftPicks.map(p => ({
-	    playerId: p.playerId,
-	    pickNumber: p.pickNumber,
-	    round: p.round,
-	    teamId: p.teamId,
-	    player: p.player,
-	    team: p.team,
-	  }))
-
-	  const userOrder = submission.items.map(item => ({
-	    playerId: item.playerId,
-	    predictedPosition: item.position,
-	    player: item.player,
-	  }))
-
-	  const numTeams = event.teams?.length ?? 0
-	  const actualTeamOrder = event.draftOrder?.teamOrder?.slice(0, numTeams) ?? []
-	  const predTeamOrder = submission.teamOrder ?? []
-	  const canDerivePredicted = numTeams > 0 && predTeamOrder.length === numTeams
-	  const teamsById = new Map((event.teams || []).map((t: { id: string; name: string }) => [t.id, t]))
-
-	  let exactMatches = 0
-	  let closeMatches = 0
-	  let correctTeamMatches = 0
-	  let correctRoundMatches = 0
-	  let playerSlotScore = 0
-	  const matchDetails: Array<{
-	    playerName: string
-	    predicted: number
-	    actual: number | null
-	    difference: number | null
-	    team: string | null
-	    predictedTeam: string | null
-	    actualTeam: string | null
-	    predictedRound: number | null
-	    actualRound: number | null
-	    correctTeam: boolean | null
-	  }> = []
-
-	  userOrder.forEach(userPick => {
-	    const actualPick = actualOrder.find(ap => ap.playerId === userPick.playerId)
-	    if (actualPick) {
-	      const difference = Math.abs(userPick.predictedPosition - actualPick.pickNumber)
-	      if (difference === 0) exactMatches++
-	      else if (difference >= 1 && difference <= 3) closeMatches++
-
-	      playerSlotScore += playerSlotPoints(difference)
-
-	      let predTeamId: string | null = null
-	      let predRound: number | null = null
-	      let correctTeam: boolean | null = null
-
-	      if (canDerivePredicted) {
-	        const slotIndex = userPick.predictedPosition - 1
-	        const { round: r, teamIndex } = slotToRoundAndTeamIndex(slotIndex, numTeams)
-	        predRound = r
-	        predTeamId = predTeamOrder[teamIndex] ?? null
-	        if (predTeamId === actualPick.teamId) {
-	          correctTeamMatches++
-	          correctTeam = true
-	        } else {
-	          correctTeam = false
-	        }
-	        if (predRound === actualPick.round) correctRoundMatches++
-	      }
-
-	      const predTeamName = predTeamId ? (teamsById.get(predTeamId)?.name ?? null) : null
-
-	      matchDetails.push({
-	        playerName: userPick.player.name,
-	        predicted: userPick.predictedPosition,
-	        actual: actualPick.pickNumber,
-	        difference,
-	        team: actualPick.team?.name ?? null,
-	        predictedTeam: predTeamName,
-	        actualTeam: actualPick.team?.name ?? null,
-	        predictedRound: predRound,
-	        actualRound: actualPick.round,
-	        correctTeam,
-	      })
-	    } else {
-	      matchDetails.push({
-	        playerName: userPick.player.name,
-	        predicted: userPick.predictedPosition,
-	        actual: null,
-	        difference: null,
-	        team: null,
-	        predictedTeam: null,
-	        actualTeam: null,
-	        predictedRound: null,
-	        actualRound: null,
-	        correctTeam: null,
-	      })
-	    }
-	  })
-
-	  const POINTS_TEAM_ORDER = 5
-	  const POINTS_CORRECT_TEAM = 3
-	  const POINTS_CORRECT_ROUND = 2
-
-	  let teamOrderExactMatches = 0
-	  if (numTeams > 0 && predTeamOrder.length === numTeams && actualTeamOrder.length === numTeams) {
-	    for (let i = 0; i < numTeams; i++) {
-	      if (predTeamOrder[i] === actualTeamOrder[i]) teamOrderExactMatches++
-	    }
-	  }
-	  const teamOrderScore = teamOrderExactMatches * POINTS_TEAM_ORDER
-	  const correctTeamScore = correctTeamMatches * POINTS_CORRECT_TEAM
-	  const correctRoundScore = correctRoundMatches * POINTS_CORRECT_ROUND
-
-	  res.json({
-	    submission: {
-	      submittedAt: submission.submittedAt,
-	      locked: submission.locked,
-	    },
-	    stats: {
-	      exactMatches,
-	      closeMatches,
-	      teamOrderExactMatches,
-	      teamOrderScore,
-	      correctTeamMatches,
-	      correctRoundMatches,
-	      correctTeamScore,
-	      correctRoundScore,
-	      playerSlotScore,
-	      score: playerSlotScore + teamOrderScore + correctTeamScore + correctRoundScore,
-	      totalPlayers: userOrder.length,
-	      categoryScores: {
-	        playerSlot: playerSlotScore,
-	        teamOrder: teamOrderScore,
-	        correctTeam: correctTeamScore,
-	        correctRound: correctRoundScore,
-	      },
-	      matchDetails: matchDetails.sort((a, b) => {
-	        if (a.actual === null) return 1
-	        if (b.actual === null) return -1
-	        return (a.difference || 0) - (b.difference || 0)
-	      }),
-	    },
-	    userName: submission.user.discordUsername,
-	  })
+	  res.json(result.data)
 	} catch (error) {
 	  console.error('Get user stats (shared) error:', error)
 	  res.status(500).json({ error: 'Failed to fetch user stats' })
@@ -559,190 +390,16 @@ router.get('/:eventId/user/:userId', async (req, res) => {
 router.get('/:eventId/my-stats', authenticate, async (req: AuthRequest, res) => {
 	try {
 	  const { eventId } = req.params
-	  const userId = req.userId!
 
-	  // Get user's submission
-	  const submission = await prisma.draftOrderSubmission.findUnique({
-	    where: {
-	      userId_eventId: {
-	        userId,
-	        eventId,
-	      },
-	    },
-	    include: {
-	      items: {
-	        include: {
-	          player: true,
-	        },
-	        orderBy: {
-	          position: 'asc',
-	        },
-	      },
-	    },
-	  })
+	  const result = await computeUserStats(eventId, req.userId!)
 
-	  if (!submission) {
-	    return res.status(404).json({ error: 'No submission found' })
+	  if (!result.ok) {
+	    return result.reason === 'event-not-found'
+	      ? res.status(404).json({ error: 'Event not found' })
+	      : res.status(404).json({ error: 'No submission found' })
 	  }
 
-	  const event = await prisma.event.findUnique({
-	    where: { id: eventId },
-	    include: {
-	      teams: true,
-	      draftOrder: true,
-	      draftPicks: {
-	        include: { player: true, team: true },
-	        orderBy: { pickNumber: 'asc' },
-	      },
-	    },
-	  })
-
-	  if (!event) {
-	    return res.status(404).json({ error: 'Event not found' })
-	  }
-
-	  const actualOrder = event.draftPicks.map(p => ({
-	    playerId: p.playerId,
-	    pickNumber: p.pickNumber,
-	    round: p.round,
-	    teamId: p.teamId,
-	    player: p.player,
-	    team: p.team,
-	  }))
-
-	  const userOrder = submission.items.map(item => ({
-	    playerId: item.playerId,
-	    predictedPosition: item.position,
-	    player: item.player,
-	  }))
-
-	  const numTeams = event.teams?.length ?? 0
-	  const actualTeamOrder = event.draftOrder?.teamOrder?.slice(0, numTeams) ?? []
-	  const predTeamOrder = submission.teamOrder ?? []
-	  const canDerivePredicted = numTeams > 0 && predTeamOrder.length === numTeams
-	  const teamsById = new Map((event.teams || []).map((t: { id: string; name: string }) => [t.id, t]))
-
-	  let exactMatches = 0
-	  let closeMatches = 0
-	  let correctTeamMatches = 0
-	  let correctRoundMatches = 0
-	  let playerSlotScore = 0
-	  const matchDetails: Array<{
-	    playerName: string
-	    predicted: number
-	    actual: number | null
-	    difference: number | null
-	    team: string | null
-	    predictedTeam: string | null
-	    actualTeam: string | null
-	    predictedRound: number | null
-	    actualRound: number | null
-	    correctTeam: boolean | null
-	  }> = []
-
-	  userOrder.forEach(userPick => {
-	    const actualPick = actualOrder.find(ap => ap.playerId === userPick.playerId)
-	    if (actualPick) {
-	      const difference = Math.abs(userPick.predictedPosition - actualPick.pickNumber)
-	      if (difference === 0) exactMatches++
-	      else if (difference >= 1 && difference <= 3) closeMatches++
-
-	      playerSlotScore += playerSlotPoints(difference)
-
-	      let predTeamId: string | null = null
-	      let predRound: number | null = null
-	      let correctTeam: boolean | null = null
-
-	      if (canDerivePredicted) {
-	        const slotIndex = userPick.predictedPosition - 1
-	        const { round: r, teamIndex } = slotToRoundAndTeamIndex(slotIndex, numTeams)
-	        predRound = r
-	        predTeamId = predTeamOrder[teamIndex] ?? null
-	        if (predTeamId === actualPick.teamId) {
-	          correctTeamMatches++
-	          correctTeam = true
-	        } else {
-	          correctTeam = false
-	        }
-	        if (predRound === actualPick.round) correctRoundMatches++
-	      }
-
-	      const predTeamName = predTeamId ? (teamsById.get(predTeamId)?.name ?? null) : null
-
-	      matchDetails.push({
-	        playerName: userPick.player.name,
-	        predicted: userPick.predictedPosition,
-	        actual: actualPick.pickNumber,
-	        difference,
-	        team: actualPick.team?.name ?? null,
-	        predictedTeam: predTeamName,
-	        actualTeam: actualPick.team?.name ?? null,
-	        predictedRound: predRound,
-	        actualRound: actualPick.round,
-	        correctTeam,
-	      })
-	    } else {
-	      matchDetails.push({
-	        playerName: userPick.player.name,
-	        predicted: userPick.predictedPosition,
-	        actual: null,
-	        difference: null,
-	        team: null,
-	        predictedTeam: null,
-	        actualTeam: null,
-	        predictedRound: null,
-	        actualRound: null,
-	        correctTeam: null,
-	      })
-	    }
-	  })
-
-	  const POINTS_TEAM_ORDER = 5
-	  const POINTS_CORRECT_TEAM = 3
-	  const POINTS_CORRECT_ROUND = 2
-
-	  let teamOrderExactMatches = 0
-	  if (numTeams > 0 && predTeamOrder.length === numTeams && actualTeamOrder.length === numTeams) {
-	    for (let i = 0; i < numTeams; i++) {
-	      if (predTeamOrder[i] === actualTeamOrder[i]) teamOrderExactMatches++
-	    }
-	  }
-	  const teamOrderScore = teamOrderExactMatches * POINTS_TEAM_ORDER
-	  const correctTeamScore = correctTeamMatches * POINTS_CORRECT_TEAM
-	  const correctRoundScore = correctRoundMatches * POINTS_CORRECT_ROUND
-
-	  const score = playerSlotScore + teamOrderScore + correctTeamScore + correctRoundScore
-
-	  res.json({
-	    submission: {
-	      submittedAt: submission.submittedAt,
-	      locked: submission.locked,
-	    },
-	    stats: {
-	      exactMatches,
-	      closeMatches,
-	      teamOrderExactMatches,
-	      teamOrderScore,
-	      correctTeamMatches,
-	      correctRoundMatches,
-	      correctTeamScore,
-	      correctRoundScore,
-	      playerSlotScore,
-	      score,
-	      totalPlayers: userOrder.length,
-	      categoryScores: {
-	        playerSlot: playerSlotScore,
-	        teamOrder: teamOrderScore,
-	        correctTeam: correctTeamScore,
-	        correctRound: correctRoundScore,
-	      },
-	      matchDetails: matchDetails.sort((a, b) => {
-	        if (a.actual === null) return 1
-	        if (b.actual === null) return -1
-	        return (a.difference || 0) - (b.difference || 0)
-	      }),
-	    },
-	  })
+	  res.json(result.data)
 	} catch (error) {
 	  console.error('Get user stats error:', error)
 	  res.status(500).json({ error: 'Failed to fetch stats' })

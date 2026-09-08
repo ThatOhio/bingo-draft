@@ -1,16 +1,16 @@
 import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react'
 import { io, Socket } from 'socket.io-client'
-import { useAuth } from './auth-context'
+import { API_URL, getStoredToken } from '../lib/api-client'
 
 interface SocketContextType {
 	socket: Socket | null
+	/** Whether the socket is currently connected. Consumers fall back to polling when false. */
+	connected: boolean
 	connectToEvent: (eventId: string) => void
 	disconnectFromEvent: (eventId: string) => void
 }
 
 const SocketContext = createContext<SocketContextType | undefined>(undefined)
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
 
 interface SocketProviderProps {
 	children: ReactNode
@@ -18,35 +18,35 @@ interface SocketProviderProps {
 
 /**
  * Provides a Socket.IO client instance and join/leave helpers. Must wrap any
- * subtree that uses useSocket. Connects when the user has a token.
+ * subtree that uses useSocket.
+ *
+ * Connects unconditionally, signed in or not: event rooms are read-only broadcast
+ * channels, and gating them on a token used to force anonymous viewers onto HTTP polling
+ * for data the socket already carries.
+ *
+ * The connection is deliberately not keyed on the token. The server does not use it for
+ * room access, and re-keying would drop every viewer's socket on each 15-minute renewal.
  */
 export function SocketProvider({ children }: SocketProviderProps) {
-	const { token } = useAuth()
 	const [socket, setSocket] = useState<Socket | null>(null)
+	const [connected, setConnected] = useState(false)
 
 	useEffect(() => {
-		if (token) {
-			const newSocket = io(API_URL, {
-				auth: {
-					token,
-				},
-			})
+		const token = getStoredToken()
+		const newSocket = io(API_URL, {
+			auth: token ? { token } : {},
+		})
 
-			newSocket.on('connect', () => {
-				console.log('Socket connected')
-			})
+		newSocket.on('connect', () => setConnected(true))
+		newSocket.on('disconnect', () => setConnected(false))
 
-			newSocket.on('disconnect', () => {
-				console.log('Socket disconnected')
-			})
+		setSocket(newSocket)
 
-			setSocket(newSocket)
-
-			return () => {
-				newSocket.close()
-			}
+		return () => {
+			newSocket.close()
+			setConnected(false)
 		}
-	}, [token])
+	}, [])
 
 	const connectToEvent = useCallback((eventId: string) => {
 		if (socket) socket.emit('join-event', eventId)
@@ -57,7 +57,7 @@ export function SocketProvider({ children }: SocketProviderProps) {
 	}, [socket])
 
 	return (
-		<SocketContext.Provider value={{ socket, connectToEvent, disconnectFromEvent }}>
+		<SocketContext.Provider value={{ socket, connected, connectToEvent, disconnectFromEvent }}>
 			{children}
 		</SocketContext.Provider>
 	)

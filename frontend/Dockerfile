@@ -7,19 +7,29 @@ ENV VITE_API_URL=$VITE_API_URL
 
 WORKDIR /app
 
+# The build context is the repo root so the @bingo-draft/shared workspace is reachable.
+# Copy manifests first so the dependency install layer caches independently of source.
 COPY package*.json ./
-# npm install works with or without package-lock.json. Workspace installs don't create
-# lockfiles in frontend/; use npm install here so Docker builds succeed.
+COPY shared/package.json ./shared/
+COPY frontend/package.json ./frontend/
+
+# One workspace install at the root: hoists dependencies and symlinks @bingo-draft/shared.
 RUN npm install
 
-COPY . .
+# Shared must be built before the frontend can typecheck or bundle against it.
+COPY shared ./shared
+RUN npm run build --workspace @bingo-draft/shared
+
+COPY frontend ./frontend
+
+WORKDIR /app/frontend
 RUN npm run build
 
 # Production stage: nginx serves static files and proxies /api and /socket.io
 FROM nginx:alpine
 
-COPY --from=builder /app/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=builder /app/frontend/dist /usr/share/nginx/html
+COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
 

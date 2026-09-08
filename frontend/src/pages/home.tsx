@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import axios from 'axios'
 import { AppHeader } from '../components/app-header'
+import { api } from '../lib/api-client'
 
 interface Event {
 	id: string
@@ -18,7 +18,6 @@ interface Event {
 	}
 }
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
 
 function Home() {
 	const [events, setEvents] = useState<Event[]>([])
@@ -26,7 +25,7 @@ function Home() {
 
 	const fetchEvents = useCallback(async () => {
 		try {
-			const response = await axios.get(`${API_URL}/api/events`)
+			const response = await api.get(`/api/events`)
 			setEvents(response.data.events)
 		} catch (error) {
 			console.error('Failed to fetch events:', error)

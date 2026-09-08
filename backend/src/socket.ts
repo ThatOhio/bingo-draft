@@ -4,12 +4,17 @@ import { JWT_SECRET } from './middleware/auth'
 
 /**
  * Configures Socket.IO with auth middleware and connection handlers.
+ *
+ * Authentication is optional. Event rooms are read-only broadcast channels — the only
+ * client-to-server messages are join-event and leave-event, and the draft state they
+ * carry is already served publicly by GET /api/draft/:eventId/state. Requiring a token
+ * only meant anonymous viewers fell back to HTTP polling for data the socket already had.
  */
 export function setupSocketIO(io: Server): void {
 	io.use((socket, next) => {
 		const token = socket.handshake.auth.token
 		if (!token) {
-			return next(new Error('Authentication required'))
+			return next()
 		}
 		try {
 			const decoded = jwt.verify(token, JWT_SECRET) as {
@@ -18,24 +23,25 @@ export function setupSocketIO(io: Server): void {
 			}
 			socket.userId = decoded.userId
 			socket.userRole = decoded.role
-			next()
 		} catch (err) {
+			// Connect anonymously rather than refusing: a stale token should degrade a
+			// viewer to read-only, not cut them off from live updates entirely.
 			console.error('Socket auth error:', err)
-			next(new Error('Invalid token'))
 		}
+		next()
 	})
 	io.on('connection', (socket) => {
-		console.log(`User connected: ${socket.userId}`)
 		socket.on('join-event', (eventId: string) => {
+			if (typeof eventId !== 'string' || eventId.length === 0) {
+				return
+			}
 			socket.join(`event:${eventId}`)
-			console.log(`User ${socket.userId} joined event ${eventId}`)
 		})
 		socket.on('leave-event', (eventId: string) => {
+			if (typeof eventId !== 'string' || eventId.length === 0) {
+				return
+			}
 			socket.leave(`event:${eventId}`)
-			console.log(`User ${socket.userId} left event ${eventId}`)
-		})
-		socket.on('disconnect', () => {
-			console.log(`User disconnected: ${socket.userId}`)
 		})
 	})
 	io.broadcastToEvent = (eventId: string, event: string, data: unknown) => {

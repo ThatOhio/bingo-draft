@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useParams, useSearchParams, Link } from 'react-router-dom'
-import axios from 'axios'
 import { useAuth } from '../contexts/auth-context'
 import { AppHeader } from '../components/app-header'
 import { InfoTooltip } from '../components/info-tooltip'
@@ -14,6 +13,7 @@ import {
 	Legend,
 	ResponsiveContainer,
 } from 'recharts'
+import { api } from '../lib/api-client'
 
 interface CategoryScores {
 	playerSlot: number
@@ -128,7 +128,6 @@ interface AggregateStats {
 	message?: string
 }
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
 
 function Stats() {
 	const { eventCode } = useParams<{ eventCode: string }>()
@@ -155,7 +154,7 @@ function Stats() {
 	    return
 	  }
 	  try {
-	    const eventRes = await axios.get(`${API_URL}/api/events/code/${eventCode}`)
+	    const eventRes = await api.get(`/api/events/code/${eventCode}`)
 	    const event = eventRes.data.event
 	    const eventId = event.id
 
@@ -167,15 +166,15 @@ function Stats() {
 	    setDraftNotFinished(false)
 
 	    const [rankingsRes, aggregateRes] = await Promise.all([
-	      axios.get(`${API_URL}/api/stats/${eventId}/rankings`),
-	      axios.get(`${API_URL}/api/stats/${eventId}/aggregate`),
+	      api.get(`/api/stats/${eventId}/rankings`),
+	      api.get(`/api/stats/${eventId}/aggregate`),
 	    ])
 	    setRankings(rankingsRes.data.rankings)
 	    setAggregate(aggregateRes.data.message ? null : aggregateRes.data)
 
 	    if (viewUserId) {
 	      try {
-	        const userRes = await axios.get(`${API_URL}/api/stats/${eventId}/user/${viewUserId}`)
+	        const userRes = await api.get(`/api/stats/${eventId}/user/${viewUserId}`)
 	        const data = userRes.data
 	        setViewedUserStats({ submission: data.submission, stats: data.stats })
 	        setViewedUserName(data.userName)
@@ -192,7 +191,7 @@ function Stats() {
 	      }
 	      if (user && viewUserId !== user.id) {
 	        try {
-	          await axios.get(`${API_URL}/api/stats/${eventId}/my-stats`)
+	          await api.get(`/api/stats/${eventId}/my-stats`)
 	          setHasMyStats(true)
 	        } catch {
 	          setHasMyStats(false)
@@ -200,7 +199,7 @@ function Stats() {
 	      }
 	    } else if (user) {
 	      try {
-	        const myRes = await axios.get(`${API_URL}/api/stats/${eventId}/my-stats`)
+	        const myRes = await api.get(`/api/stats/${eventId}/my-stats`)
 	        setViewedUserStats(myRes.data)
 	        setViewedUserName(user.discordUsername)
 	        setViewedUserError(null)
