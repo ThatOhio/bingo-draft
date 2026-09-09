@@ -4,6 +4,9 @@ import { useParams } from 'react-router-dom'
 import {
 	DndContext,
 	DragEndEvent,
+	DragOverEvent,
+	DragOverlay,
+	DragStartEvent,
 	closestCenter,
 	useDraggable,
 	useDroppable,
@@ -23,6 +26,7 @@ import { api } from '../lib/api-client'
 import { useAuth } from '../contexts/auth-context'
 import { AppHeader } from '../components/app-header'
 import { useFantasyRedirect } from '../hooks/use-fantasy-redirect'
+import { useTap } from '../hooks/use-tap'
 import { getErrorMessage } from '../utils/get-error-message'
 
 interface Player {
@@ -55,11 +59,23 @@ interface DraggableCellChipProps {
 	round: number
 	teamId: string
 	disabled?: boolean
+	armed?: boolean
+	onArm?: (playerId: string) => void
 }
 
 interface EditingCell {
 	round: number
 	teamId: string
+}
+
+/** Where a drag would land right now. Drives the overlay label and the board cross-hair. */
+type DropTarget =
+	| { kind: 'cell'; round: number; teamId: string }
+	| { kind: 'pool' }
+
+interface DragPreviewProps {
+	playerName: string
+	destination: string | null
 }
 
 interface DraftCellProps {
@@ -73,11 +89,18 @@ interface DraftCellProps {
 	disabled?: boolean
 	editingCell: EditingCell | null
 	onEmptySlotClick?: (round: number, teamId: string, anchorEl: HTMLElement) => void
+	isColumnActive: boolean
+	isRowActive: boolean
+	armedPlayerId: string | null
+	onArmPlayer?: (playerId: string) => void
+	onArmedSlotClick?: (round: number, teamId: string) => void
 }
 
 interface PlayerPoolItemProps {
 	player: Player
 	disabled?: boolean
+	armed?: boolean
+	onArm?: (playerId: string) => void
 }
 
 interface DroppablePoolProps {
@@ -184,6 +207,8 @@ function DraggableCellChip({
 	round,
 	teamId,
 	disabled,
+	armed,
+	onArm,
 }: DraggableCellChipProps) {
 	const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
 	  id: `placed-${round}-${teamId}`,
@@ -191,14 +216,39 @@ function DraggableCellChip({
 	  disabled,
 	})
 
+	const canArm = !disabled && !!onArm
+	const handleArm = useCallback(() => {
+	  if (!onArm) {
+	    return
+	  }
+	  onArm(player.id)
+	}, [onArm, player.id])
+	const tap = useTap(canArm ? handleArm : undefined)
+
+	const handleKeyDown = useCallback(
+	  (e: React.KeyboardEvent<HTMLDivElement>) => {
+	    if (!canArm || (e.key !== 'Enter' && e.key !== ' ')) {
+	      return
+	    }
+	    e.preventDefault()
+	    handleArm()
+	  },
+	  [canArm, handleArm]
+	)
+
 	return (
 	  <div
 	    ref={setNodeRef}
 	    {...attributes}
 	    {...listeners}
+	    onPointerDownCapture={tap.onPointerDownCapture}
+	    onClick={tap.onClick}
+	    onKeyDown={handleKeyDown}
+	    aria-pressed={canArm ? !!armed : undefined}
+	    title={canArm ? `${player.name} — drag to another slot, or tap to pick up and move` : player.name}
 	    className={`text-sm font-medium text-gray-900 dark:text-gray-100 truncate px-2 py-1 rounded bg-indigo-100 dark:bg-indigo-900/50 border border-indigo-200 dark:border-indigo-700 cursor-grab active:cursor-grabbing touch-none select-none ${
 	      isDragging ? 'opacity-50' : ''
-	    } ${disabled ? 'cursor-not-allowed opacity-60' : ''}`}
+	    } ${armed ? 'ring-2 ring-indigo-500 dark:ring-indigo-400' : ''} ${disabled ? 'cursor-not-allowed opacity-60' : ''}`}
 	  >
 	    {player.name}
 	  </div>
@@ -220,6 +270,11 @@ const DraftCell = memo(function DraftCell({
 	disabled,
 	editingCell,
 	onEmptySlotClick,
+	isColumnActive,
+	isRowActive,
+	armedPlayerId,
+	onArmPlayer,
+	onArmedSlotClick,
 }: DraftCellProps) {
 	const cellRef = useRef<HTMLTableCellElement | null>(null)
 	const valid = isValidSlot(round, teamIndex, numTeams, totalSlots)
@@ -240,47 +295,79 @@ const DraftCell = memo(function DraftCell({
 	const playerObj = playerId ? players.find((p) => p.id === playerId) : undefined
 	const isEmpty = valid && !playerObj && !disabled
 	const isEditing = editingCell?.round === round && editingCell?.teamId === teamId
+	// A player picked up by tap rather than drag: every other valid slot becomes a tap
+	// target, so a phone never has to drag across a board taller than the screen.
+	const isArmedTarget =
+		!!armedPlayerId && valid && !disabled && playerObj?.id !== armedPlayerId
+	// Tapping a placed chip picks it up, and tapping the one already in hand puts it
+	// back down. While a *different* player is in hand the tap belongs to the slot.
+	const canArmChip = !armedPlayerId || armedPlayerId === playerObj?.id
 
 	const handleEmptyClick = useCallback(() => {
 		if (!isEmpty || !onEmptySlotClick || !cellRef.current) return
 		onEmptySlotClick(round, teamId, cellRef.current)
 	}, [isEmpty, onEmptySlotClick, round, teamId])
 
+	const handleArmedClick = useCallback(() => {
+		if (!isArmedTarget || !onArmedSlotClick) return
+		onArmedSlotClick(round, teamId)
+	}, [isArmedTarget, onArmedSlotClick, round, teamId])
+
 	const compact = numTeams >= 5
+
+	let cellTone = 'bg-white dark:bg-gray-800'
+	if (!valid) {
+		cellTone = 'bg-gray-50 dark:bg-gray-700/50'
+	} else if (isOver) {
+		cellTone = 'bg-indigo-50 dark:bg-indigo-900/30 ring-1 ring-indigo-300 dark:ring-indigo-600 ring-inset'
+	} else if (isEditing) {
+		cellTone = 'bg-indigo-50/80 dark:bg-indigo-900/20 ring-1 ring-indigo-300 dark:ring-indigo-600 ring-inset'
+	} else if (isColumnActive || isRowActive) {
+		// Cross-hair while dragging: the lit column runs up to the sticky header, so the
+		// team name is readable without counting columns.
+		cellTone = 'bg-indigo-50/60 dark:bg-indigo-900/20'
+	} else if (isArmedTarget) {
+		cellTone = 'bg-green-50/70 dark:bg-green-900/20'
+	}
 	return (
 	  <td
 	    ref={setRef}
+	    onClick={isArmedTarget ? handleArmedClick : undefined}
 	    className={`${compact ? 'min-w-[5rem]' : 'min-w-[7rem]'} p-1.5 align-top border-b ` +
-		`border-gray-100 dark:border-gray-700 ${
-			!valid ? 'bg-gray-50 dark:bg-gray-700/50'
-				: isOver
-					? 'bg-indigo-50 dark:bg-indigo-900/30 ring-1 ring-indigo-300 ' +
-						'dark:ring-indigo-600 ring-inset'
-					: isEditing
-						? 'bg-indigo-50/80 dark:bg-indigo-900/20 ring-1 ring-indigo-300 dark:ring-indigo-600 ring-inset'
-						: 'bg-white dark:bg-gray-800'
-		} ${!valid ? '' : 'min-h-[2.25rem]'}`}
+		`border-gray-100 dark:border-gray-700 ${cellTone} ` +
+		`${isArmedTarget ? 'cursor-pointer' : ''} ${!valid ? '' : 'min-h-[2.25rem]'}`}
 	  >
 	    {!valid ? (
 	      <span className="text-gray-300 dark:text-gray-500 text-xs">-</span>
 	    ) : playerObj ? (
-	      <DraggableCellChip player={playerObj} round={round} teamId={teamId} disabled={disabled} />
+	      <DraggableCellChip
+	        player={playerObj}
+	        round={round}
+	        teamId={teamId}
+	        disabled={disabled}
+	        armed={armedPlayerId === playerObj.id}
+	        onArm={canArmChip ? onArmPlayer : undefined}
+	      />
 	    ) : (
 	      <div
 	        role="button"
 	        tabIndex={0}
-	        onClick={handleEmptyClick}
+	        onClick={isArmedTarget ? undefined : handleEmptyClick}
 	        onKeyDown={(e) => {
 	          if (e.key === 'Enter' || e.key === ' ') {
 	            e.preventDefault()
-	            handleEmptyClick()
+	            if (isArmedTarget) {
+	              handleArmedClick()
+	            } else {
+	              handleEmptyClick()
+	            }
 	          }
 	        }}
-	        className={`text-sm min-h-[1.5rem] ${isEmpty ? 'cursor-pointer text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/20 rounded px-1 -mx-1' : 'text-gray-400 dark:text-gray-500 italic'}`}
-	        title={isEmpty ? 'Click to type a player name' : undefined}
-	        aria-label={isEmpty ? `Pick player for round ${round}` : undefined}
+	        className={`text-sm min-h-[1.5rem] ${isArmedTarget ? 'cursor-pointer font-medium text-green-700 dark:text-green-300' : isEmpty ? 'cursor-pointer text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/20 rounded px-1 -mx-1' : 'text-gray-400 dark:text-gray-500 italic'}`}
+	        title={isArmedTarget ? 'Tap to place the player you picked up' : isEmpty ? 'Click to type a player name' : undefined}
+	        aria-label={isArmedTarget ? `Place player here, round ${round}` : isEmpty ? `Pick player for round ${round}` : undefined}
 	      >
-	        {isEmpty ? 'Click to add…' : '\u00A0'}
+	        {isArmedTarget ? 'Tap to place' : isEmpty ? 'Click to add…' : '\u00A0'}
 	      </div>
 	    )}
 	  </td>
@@ -435,29 +522,77 @@ function PlayerPickerPopover({
 /**
  * Draggable chip for a player in the pool. Can be dropped onto cells or back to the pool.
  */
-const PlayerPoolItem = memo(function PlayerPoolItem({ player, disabled }: PlayerPoolItemProps) {
+const PlayerPoolItem = memo(function PlayerPoolItem({
+	player,
+	disabled,
+	armed,
+	onArm,
+}: PlayerPoolItemProps) {
 	const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
 	  id: `player-${player.id}`,
 	  data: { playerId: player.id, source: 'pool' as const },
 	  disabled,
 	})
 
-	const title = player.team ? `${player.name} (${player.team})` : player.name
+	const canArm = !disabled && !!onArm
+	const handleArm = useCallback(() => {
+	  if (!onArm) {
+	    return
+	  }
+	  onArm(player.id)
+	}, [onArm, player.id])
+	const tap = useTap(canArm ? handleArm : undefined)
+
+	const handleKeyDown = useCallback(
+	  (e: React.KeyboardEvent<HTMLDivElement>) => {
+	    if (!canArm || (e.key !== 'Enter' && e.key !== ' ')) {
+	      return
+	    }
+	    e.preventDefault()
+	    handleArm()
+	  },
+	  [canArm, handleArm]
+	)
+
+	const name = player.team ? `${player.name} (${player.team})` : player.name
+	const title = canArm ? `${name} — drag onto a slot, or tap to pick up` : name
 
 	return (
 	  <div
 	    ref={setNodeRef}
 	    {...attributes}
 	    {...listeners}
+	    onPointerDownCapture={tap.onPointerDownCapture}
+	    onClick={tap.onClick}
+	    onKeyDown={handleKeyDown}
+	    aria-pressed={canArm ? !!armed : undefined}
 	    title={title}
 	    className={`inline-flex items-center px-2 py-1 rounded-md border text-sm cursor-grab active:cursor-grabbing transition-colors touch-none select-none ${
 	      isDragging ? 'opacity-50' : 'bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 hover:border-indigo-300 dark:hover:border-indigo-500 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/30'
-	    } ${disabled ? 'cursor-not-allowed opacity-60' : ''}`}
+	    } ${armed ? 'ring-2 ring-indigo-500 dark:ring-indigo-400 border-indigo-300 dark:border-indigo-500' : ''} ${disabled ? 'cursor-not-allowed opacity-60' : ''}`}
 	  >
 	    <span className="font-medium text-gray-900 dark:text-gray-100 truncate max-w-[11rem]">{player.name}</span>
 	  </div>
 	)
 })
+
+/**
+ * Contents of the drag overlay. The chip tracks the pointer and the badge sits above it,
+ * clear of the finger, naming the slot the player would land in — the board header can be
+ * scrolled well out of view by the time you reach the round you want.
+ */
+function DragPreview({ playerName, destination }: DragPreviewProps) {
+	return (
+		<div className="relative pointer-events-none">
+			<div className="absolute bottom-full left-0 mb-2 whitespace-nowrap rounded-md bg-gray-900 dark:bg-gray-100 px-2 py-1 text-xs font-semibold text-white dark:text-gray-900 shadow-lg">
+				{destination ?? 'Drop on a slot to place'}
+			</div>
+			<div className="inline-flex items-center rounded-md border border-indigo-400 dark:border-indigo-500 bg-white dark:bg-gray-700 px-2 py-1 text-sm font-medium text-gray-900 dark:text-gray-100 shadow-lg">
+				{playerName}
+			</div>
+		</div>
+	)
+}
 
 /**
  * Sortable team row for "Predict team draft order". Drag handle, index, and team name.
@@ -510,6 +645,9 @@ function DraftSubmission() {
 	const [searchTerm, setSearchTerm] = useState('')
 	const [editingCell, setEditingCell] = useState<EditingCell | null>(null)
 	const [pickerAnchorRect, setPickerAnchorRect] = useState<DOMRect | null>(null)
+	const [activePlayerId, setActivePlayerId] = useState<string | null>(null)
+	const [dropTarget, setDropTarget] = useState<DropTarget | null>(null)
+	const [armedPlayerId, setArmedPlayerId] = useState<string | null>(null)
 
 	const sensors = useSensors(
 	  useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -567,6 +705,19 @@ function DraftSubmission() {
 
 	useFantasyRedirect(event?.fantasyEnabled, eventCode)
 
+	useEffect(() => {
+		if (!armedPlayerId) {
+			return
+		}
+		const handleEscape = (e: KeyboardEvent) => {
+			if (e.key === 'Escape') {
+				setArmedPlayerId(null)
+			}
+		}
+		document.addEventListener('keydown', handleEscape)
+		return () => document.removeEventListener('keydown', handleEscape)
+	}, [armedPlayerId])
+
 	const teamIds = useMemo(() => teamOrder.length > 0 ? teamOrder : (event?.teams || []).map((t) => t.id), [teamOrder, event?.teams])
 	const numTeams = teamIds.length || 1
 	// Memoised so the empty-array fallback does not produce a new identity each render,
@@ -588,8 +739,43 @@ function DraftSubmission() {
 	  [unplacedPlayers, searchTerm]
 	)
 
+	const handleDragStart = (e: DragStartEvent) => {
+	  const playerId = (e.active.data.current as { playerId?: string })?.playerId ?? null
+	  setActivePlayerId(playerId)
+	  setDropTarget(null)
+	  // A drag supersedes anything picked up by tap.
+	  setArmedPlayerId(null)
+	}
+
+	// Fires only when the hovered droppable changes, not on every pointer move.
+	const handleDragOver = (e: DragOverEvent) => {
+	  const { over } = e
+	  if (!over) {
+	    setDropTarget(null)
+	    return
+	  }
+	  const overId = over.id.toString()
+	  const overData = over.data.current as { round?: number; teamId?: string } | undefined
+	  if (overId.startsWith('cell-') && overData?.round !== undefined && overData.teamId !== undefined) {
+	    setDropTarget({ kind: 'cell', round: overData.round, teamId: overData.teamId })
+	    return
+	  }
+	  if (overId === 'pool' || overId.startsWith('player-')) {
+	    setDropTarget({ kind: 'pool' })
+	    return
+	  }
+	  setDropTarget(null)
+	}
+
+	const handleDragCancel = () => {
+	  setActivePlayerId(null)
+	  setDropTarget(null)
+	}
+
 	const handleDragEnd = (e: DragEndEvent) => {
 	  const { active, over } = e
+	  setActivePlayerId(null)
+	  setDropTarget(null)
 	  if (!over || !event) return
 
 	  const fromPool = active.id.toString().startsWith('player-')
@@ -670,6 +856,26 @@ function DraftSubmission() {
 		setPickerAnchorRect(null)
 	}, [])
 
+	/** Picks a player up (or puts them back down) for the tap-tap placement flow. */
+	const handleArmPlayer = useCallback((playerId: string) => {
+		setEditingCell(null)
+		setPickerAnchorRect(null)
+		setArmedPlayerId((current) => (current === playerId ? null : playerId))
+	}, [])
+
+	const handleArmedSlotClick = useCallback(
+		(round: number, teamId: string) => {
+			if (!armedPlayerId) {
+				return
+			}
+			// Placing onto an occupied slot sends the player already there back to the
+			// list, matching what the type-to-place picker does.
+			handlePlacePlayerInSlot(round, teamId, armedPlayerId)
+			setArmedPlayerId(null)
+		},
+		[armedPlayerId, handlePlacePlayerInSlot]
+	)
+
 	const handleSave = async () => {
 	  if (!eventCode || !event) return
 
@@ -707,6 +913,7 @@ function DraftSubmission() {
 		setTeamOrderLocked(true)
 	}
 	const handleEditTeamOrder = () => {
+		setArmedPlayerId(null)
 		setPlayersByTeamWhenEditing(gridToPlayersByTeam(grid, teamIds, numTeams, totalSlots))
 		setTeamOrderLocked(false)
 		setGrid({})
@@ -746,6 +953,16 @@ function DraftSubmission() {
 	      </div>
 	    </div>
 	  )
+	}
+
+	const activePlayer = activePlayerId ? players.find((p) => p.id === activePlayerId) : undefined
+	const armedPlayer = armedPlayerId ? players.find((p) => p.id === armedPlayerId) : undefined
+	let dropDestinationLabel: string | null = null
+	if (dropTarget?.kind === 'pool') {
+		dropDestinationLabel = 'Remove from board'
+	} else if (dropTarget?.kind === 'cell') {
+		const destinationTeam = event.teams.find((t) => t.id === dropTarget.teamId)
+		dropDestinationLabel = `${destinationTeam?.name ?? 'Team'} \u00B7 Round ${dropTarget.round}`
 	}
 
 	return (
@@ -855,7 +1072,7 @@ function DraftSubmission() {
 	            <div>
 	              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Draft board</h2>
 	              <p className="text-gray-600 dark:text-gray-400 mb-2">
-	                Click and drag each player from the Players list onto a slot on the board, or click an empty slot and type a player name to place them. Each column is a team and each slot is one pick. You can move players between slots or drag them back to the list to remove them.
+	                Drag each player from the Players list onto a slot on the board. On a phone, tap a player and then tap the slot you want them in. You can also click an empty slot and type a player name. Each column is a team and each slot is one pick; drag a player back to the list to remove them.
 	              </p>
 	              <p className="text-gray-600 dark:text-gray-400">
 	                Columns follow your team order above. Save anytime. Whatever you have saved when the draft starts will count.
@@ -887,7 +1104,31 @@ function DraftSubmission() {
 	            />
 	          )}
 
-	          <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+	          {armedPlayer && (
+	            <div
+	              role="status"
+	              className="sticky top-0 z-40 mb-4 flex items-center justify-between gap-3 rounded-md border border-indigo-200 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-900/80 px-4 py-2 shadow-sm"
+	            >
+	              <span className="text-sm text-indigo-900 dark:text-indigo-100">
+	                <span className="font-semibold">{armedPlayer.name}</span> picked up — tap a slot on the board to place them.
+	              </span>
+	              <button
+	                type="button"
+	                onClick={() => setArmedPlayerId(null)}
+	                className="shrink-0 text-sm font-medium text-indigo-700 dark:text-indigo-300 hover:text-indigo-900 dark:hover:text-indigo-100"
+	              >
+	                Cancel
+	              </button>
+	            </div>
+	          )}
+
+	          <DndContext
+	            sensors={sensors}
+	            onDragStart={handleDragStart}
+	            onDragOver={handleDragOver}
+	            onDragEnd={handleDragEnd}
+	            onDragCancel={handleDragCancel}
+	          >
 	        <div className={`flex flex-col gap-6 ${numTeams >= 5 ? '' : 'lg:flex-row'}`}>
 	          {/* Draft board grid */}
 	          <div className="flex-1 min-w-0">
@@ -898,23 +1139,30 @@ function DraftSubmission() {
 	                  {placedIds.length} of {totalSlots} players placed
 	                </p>
 	              </div>
-	              <div className="overflow-x-auto">
+	              {/* A bounded scroll box, not just overflow-x: `sticky top-0` on the header
+	                  only pins against an ancestor that actually scrolls vertically. */}
+	              <div className="max-h-[70vh] overflow-auto">
 	                <table className="w-full border-collapse min-w-[400px]">
 	                  <thead>
 	                    <tr>
-	                      <th className="text-left p-2 border-b border-gray-200 dark:border-gray-700 font-semibold text-gray-700 dark:text-gray-300 sticky left-0 bg-white dark:bg-gray-800 z-10 min-w-[4rem]">
+	                      {/* border-collapse drops the borders of sticky cells once they
+	                          detach, so the header rule is an inset shadow instead. */}
+	                      <th className="text-left p-2 font-semibold text-gray-700 dark:text-gray-300 sticky left-0 top-0 bg-white dark:bg-gray-800 z-30 min-w-[4rem] shadow-[inset_0_-1px_0_#e5e7eb] dark:shadow-[inset_0_-1px_0_#374151]">
 	                        Round
 	                      </th>
 	                      {teamIds.map((teamId) => {
 	                        const t = event.teams.find((x) => x.id === teamId)
 	                        const compact = numTeams >= 5
+	                        const columnActive = dropTarget?.kind === 'cell' && dropTarget.teamId === teamId
 	                        return (
 	                          <th
 	                            key={teamId}
 	                            title={compact ? (t?.name ?? '') : undefined}
-	                            className={`text-left p-2 border-b border-gray-200 dark:border-gray-700 font-semibold text-gray-700 dark:text-gray-300 ${
-	                              compact ? 'min-w-0 max-w-[5.5rem] truncate' : 'min-w-[7rem]'
-	                            }`}
+	                            className={`text-left p-2 font-semibold sticky top-0 z-20 shadow-[inset_0_-1px_0_#e5e7eb] dark:shadow-[inset_0_-1px_0_#374151] ${
+	                              columnActive
+	                                ? 'bg-indigo-100 dark:bg-indigo-900/70 text-indigo-800 dark:text-indigo-100'
+	                                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'
+	                            } ${compact ? 'min-w-0 max-w-[5.5rem] truncate' : 'min-w-[7rem]'}`}
 	                          >
 	                            {t?.name ?? ''}
 	                          </th>
@@ -925,7 +1173,13 @@ function DraftSubmission() {
 	                  <tbody>
 	                    {Array.from({ length: maxRound }, (_, i) => i + 1).map((round) => (
 	                      <tr key={round} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/30">
-	                        <td className="p-2 border-b border-gray-100 dark:border-gray-700 font-medium text-gray-600 dark:text-gray-400 sticky left-0 bg-white dark:bg-gray-800 z-10">
+	                        <td
+	                          className={`p-2 border-b border-gray-100 dark:border-gray-700 font-medium sticky left-0 z-10 ${
+	                            dropTarget?.kind === 'cell' && dropTarget.round === round
+	                              ? 'bg-indigo-100 dark:bg-indigo-900/70 text-indigo-800 dark:text-indigo-100'
+	                              : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400'
+	                          }`}
+	                        >
 	                          {round}
 	                        </td>
 	                        {teamIds.map((teamId, teamIndex) => (
@@ -941,6 +1195,11 @@ function DraftSubmission() {
 	                            disabled={isLocked}
 	                            editingCell={editingCell}
 	                            onEmptySlotClick={isLocked ? undefined : handleEmptySlotClick}
+	                            isColumnActive={dropTarget?.kind === 'cell' && dropTarget.teamId === teamId}
+	                            isRowActive={dropTarget?.kind === 'cell' && dropTarget.round === round}
+	                            armedPlayerId={armedPlayerId}
+	                            onArmPlayer={isLocked ? undefined : handleArmPlayer}
+	                            onArmedSlotClick={isLocked ? undefined : handleArmedSlotClick}
 	                          />
 	                        ))}
 	                      </tr>
@@ -957,7 +1216,7 @@ function DraftSubmission() {
 	              <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex flex-col gap-2">
 	                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Players</h3>
 	                <p className="text-sm text-gray-500 dark:text-gray-400">
-	                  Drag each name onto a slot, or click an empty slot and type to add a player.
+	                  Drag a name onto a slot, or tap a name and then tap the slot you want it in.
 	                </p>
 	                <input
 	                  type="text"
@@ -970,7 +1229,13 @@ function DraftSubmission() {
 	              <DroppablePool disabled={isLocked}>
 	                <div className="p-3 flex-1 overflow-y-auto min-h-[12rem] flex flex-wrap gap-2 content-start">
 	                  {filteredPool.map((p) => (
-	                    <PlayerPoolItem key={p.id} player={p} disabled={isLocked} />
+	                    <PlayerPoolItem
+	                      key={p.id}
+	                      player={p}
+	                      disabled={isLocked}
+	                      armed={armedPlayerId === p.id}
+	                      onArm={isLocked ? undefined : handleArmPlayer}
+	                    />
 	                  ))}
 	                  {filteredPool.length === 0 && (
 	                    <div className="text-sm text-gray-500 dark:text-gray-400 py-4 w-full text-center">
@@ -984,6 +1249,12 @@ function DraftSubmission() {
 	            </div>
 	          </div>
 	        </div>
+
+	        <DragOverlay dropAnimation={null}>
+	          {activePlayer ? (
+	            <DragPreview playerName={activePlayer.name} destination={dropDestinationLabel} />
+	          ) : null}
+	        </DragOverlay>
 	      </DndContext>
 
 	      <div className="mt-6 text-sm text-gray-600 dark:text-gray-400">
